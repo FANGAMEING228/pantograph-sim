@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Симулятор пантографа</title>
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#0b1020;font-family:"Segoe UI",Arial,sans-serif;}
+  canvas{display:block;}
+  #hud{
+    position:fixed;top:14px;left:14px;color:#fff;z-index:5;
+    text-shadow:0 0 6px #000;user-select:none;
+    background:rgba(0,0,0,0.35);padding:12px 16px;border-radius:10px;
+    backdrop-filter:blur(2px);
+  }
+  #hud h2{margin:0 0 8px 0;font-size:16px;color:#ffd84d;}
+  #hud .row{font-size:13px;margin:3px 0;opacity:0.95;}
+  #hud .state{font-weight:bold;font-size:15px;margin-top:8px;min-height:20px;}
+  .bar{width:200px;height:10px;background:rgba(255,255,255,0.15);
+       border:1px solid rgba(255,255,255,0.4);border-radius:5px;overflow:hidden;margin-top:4px;}
+  .fill{height:100%;width:0%;transition:width .08s linear;background:linear-gradient(90deg,#4fc3f7,#2196f3);}
+  #controls{
+    position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+    color:#ccc;font-size:13px;text-shadow:0 0 5px #000;z-index:5;opacity:0.85;
+    user-select:none;text-align:center;
+    max-width:92%;line-height:1.7;
+  }
+  #controls kbd{
+    background:#222;border:1px solid #555;border-radius:4px;padding:2px 7px;margin:0 3px;
+    font-family:monospace;color:#fff;
+  }
+
+  /* боковое меню настроек */
+  #menu{
+    position:fixed;top:14px;right:14px;z-index:6;color:#fff;user-select:none;
+    background:rgba(0,0,0,0.45);padding:14px 16px;border-radius:12px;
+    backdrop-filter:blur(3px);width:260px;font-size:13px;
+    border:1px solid rgba(255,255,255,0.12);
+  }
+  #menu h3{margin:0 0 10px 0;font-size:14px;color:#ffd84d;font-weight:600;}
+  #menu .lbl{display:flex;justify-content:space-between;margin:8px 0 4px 0;opacity:0.95;}
+  #menu .lbl b{color:#9cf;}
+  #menu input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:6px;
+    background:rgba(255,255,255,0.18);border-radius:4px;outline:none;cursor:pointer;
+  }
+  #menu input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#ffd84d;border:2px solid #1a1a1a;cursor:pointer;box-shadow:0 0 6px rgba(255,216,77,0.7);
+  }
+  #menu input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;background:#ffd84d;border:2px solid #1a1a1a;
+    cursor:pointer;box-shadow:0 0 6px rgba(255,216,77,0.7);
+  }
+  #menu .preset{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+  #menu .preset button{
+    flex:1;min-width:0;font-size:11px;padding:5px 4px;border-radius:6px;
+    background:#2a2f4a;color:#fff;border:1px solid #444;cursor:pointer;
+    transition:background .15s,border-color .15s;font-family:inherit;
+  }
+  #menu .preset button:hover{background:#3a4170;border-color:#6cf;}
+  #menu .preset button.active{background:#3a5a8a;border-color:#9cf;}
+  #menu .stats{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);
+              font-size:12px;opacity:0.85;}
+  #menu .stats .row{display:flex;justify-content:space-between;margin:3px 0;}
+  #menu .stats .warn{color:#f86;font-weight:bold;}
+  #menuToggle{
+    position:fixed;top:14px;right:14px;z-index:7;
+    background:rgba(0,0,0,0.6);color:#ffd84d;border:1px solid rgba(255,255,255,0.2);
+    border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;display:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h2>⚡ Пантограф — симулятор</h2>
+  <div class="row">Высота подъёма: <span id="extVal">0</span> px</div>
+  <div class="bar"><div id="extBar" class="fill"></div></div>
+  <div class="row">Зазор до провода: <span id="gapVal">0</span> px</div>
+  <div class="state" id="stateText">—</div>
+</div>
+
+<div id="controls">
+  <kbd>↑</kbd><kbd>W</kbd> поднять &nbsp; <kbd>↓</kbd><kbd>S</kbd> опустить &nbsp; <kbd>Space</kbd> в среднее положение<br>
+  🖱️ <b>Мышь</b>: зажми и тяни — опустить пантограф, отпусти — отпружинит вверх и отскочит от провода
+</div>
+
+<button id="menuToggle">⚙️</button>
+<aside id="menu">
+  <h3>⚙️ Настройки искр</h3>
+
+  <div class="lbl"><span>Максимум частиц</span><b id="capVal">2000</b></div>
+  <input type="range" id="capSlider" min="0" max="500000" step="50" value="2000">
+  <div class="preset">
+    <button data-v="500">500</button>
+    <button data-v="2000" class="active">2K</button>
+    <button data-v="10000">10K</button>
+    <button data-v="50000">50K</button>
+    <button data-v="200000">200K</button>
+    <button data-v="500000">500K</button>
+  </div>
+
+  <div class="lbl" style="margin-top:14px;"><span>Размер искры</span><b id="szVal">1.0×</b></div>
+  <input type="range" id="szSlider" min="0.3" max="3" step="0.1" value="1">
+
+  <div class="lbl" style="margin-top:14px;"><span>Плотность искр</span><b id="rateVal">1.0×</b></div>
+  <input type="range" id="rateSlider" min="0" max="3" step="0.1" value="1">
+
+  <div class="stats">
+    <div class="row"><span>Активно частиц:</span><b id="liveCount">0</b></div>
+    <div class="row"><span>FPS:</span><b id="fpsVal">—</b></div>
+    <div class="row" id="perfRow" style="display:none;"><span class="warn">⚠ Високе навантаження</span><b></b></div>
+  </div>
+</aside>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const extValEl = document.getElementById('extVal');
+const extBarEl = document.getElementById('extBar');
+const gapValEl = document.getElementById('gapVal');
+const stateTextEl = document.getElementById('stateText');
+
+// ---------------- geometry params ----------------
+function roofY(){ return H*0.70; }
+function wireY(){ return H*0.14; }
+const stripOffset = 26;     // контактная полоса находится выше точки схождения верхних рычагов
+const baseOffset  = 22;     // половина расстояния между опорами на крыше
+let La, Lu;                 // длины нижнего и верхнего плеча (считаются при resize)
+
+function recalcArms(){
+  const span = (roofY() - wireY());       // максимальный вертикальный ход
+  const needed = Math.sqrt(span*span + baseOffset*baseOffset);
+  La = Lu = needed*0.62;                  // с запасом, чтобы треугольник всегда решался
+}
+recalcArms();
+window.addEventListener('resize', recalcArms);
+
+function maxExtension(){
+  return roofY() - (wireY() + stripOffset);
+}
+function minExtension(){
+  return 10;
+}
+
+// ---------------- state ----------------
+let extension = 0;
+let extVelocity = 0;
+let keys = {};
+let particles = [];
+let scrollX = 0;
+let lastTime = performance.now();
+let sparkPulse = 0;
+
+// --- limits & perf tuning ---
+let MAX_PARTICLES = 2000;     // жорсткий ліміт частинок (0..500000)
+let SPARK_SIZE_MUL = 1.0;     // множник розміру іскр
+let SPARK_RATE_MUL = 1.0;     // множник кількості частинок за спавн
+
+const EXT_ACCEL = 700;
+const EXT_MAXSPEED = 420;
+const EXT_FRICTION = 0.88;
+const SPARK_ZONE = 46; // px зазора, в пределах которого идут искры
+
+// --- spring physics (mouse release) ---
+const SPRING_K   = 220;  // жёсткость пружины (тянет вверх к проводу)
+const SPRING_C   = 4.5;  // демпфирование (малое → упругий отскок)
+const BOUNCE     = 0.55; // коэффициент отскока от провода
+const SETTLE_V   = 6;    // порог скорости для остановки
+const SETTLE_X   = 0.6;  // порог расстояния для остановки
+
+// режимы управления: 'idle' (клавиатура), 'dragging' (мышь зажата), 'springing' (отпустили — пружинит)
+let controlMode = 'idle';
+let springTarget = 0;
+let flashAlpha = 0;     // белая вспышка при сильном отскоке
+let lastBounceV = 0;    // для расчёта силы искр при отскоке
+
+// стартуем в среднем положении
+extension = maxExtension()*0.45;
+
+// ---------------- input ----------------
+window.addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','KeyW','KeyS','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if(e.code === 'Space'){
+    controlMode = 'idle';
+    extension = maxExtension()*0.5;
+    extVelocity = 0;
+  }
+});
+window.addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+// --- mouse / touch drag ---
+function pointerToExtension(clientY){
+  // Чем выше мышь — тем больше extension. Map: mouseY → extension.
+  const target = roofY() - clientY - stripOffset;
+  return Math.max(minExtension(), Math.min(maxExtension(), target));
+}
+canvas.addEventListener('pointerdown', e=>{
+  controlMode = 'dragging';
+  extension = pointerToExtension(e.clientY);
+  extVelocity = 0;
+  canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+});
+window.addEventListener('pointermove', e=>{
+  if(controlMode === 'dragging'){
+    extension = pointerToExtension(e.clientY);
+    extVelocity = 0;
+  }
+});
+window.addEventListener('pointerup', e=>{
+  if(controlMode === 'dragging'){
+    controlMode = 'springing';
+    springTarget = maxExtension(); // пружинит вверх к проводу
+  }
+});
+window.addEventListener('pointercancel', e=>{
+  if(controlMode === 'dragging'){
+    controlMode = 'springing';
+    springTarget = maxExtension();
+  }
+});
+
+// ---------------- audio ----------------
+let audioCtx=null, noiseBuffer=null, lastSnd=0;
+function initAudio(){
+  if(audioCtx) return;
+  try{
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const bs = audioCtx.sampleRate*0.3;
+    noiseBuffer = audioCtx.createBuffer(1,bs,audioCtx.sampleRate);
+    const d = noiseBuffer.getChannelData(0);
+    for(let i=0;i<bs;i++) d[i]=Math.random()*2-1;
+  }catch(e){}
+}
+window.addEventListener('keydown', initAudio, {once:true});
+window.addEventListener('pointerdown', initAudio, {once:true});
+
+function playCrackle(vol){
+  if(!audioCtx) return;
+  const now = performance.now();
+  if(now-lastSnd<45) return;
+  lastSnd = now;
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer;
+  src.playbackRate.value = 1.2+Math.random()*1.8;
+  const gain = audioCtx.createGain();
+  const g = Math.min(0.55, vol*0.55);
+  gain.gain.setValueAtTime(g, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.1+Math.random()*0.12);
+  const filt = audioCtx.createBiquadFilter();
+  filt.type='highpass'; filt.frequency.value=900;
+  src.connect(filt).connect(gain).connect(audioCtx.destination);
+  src.start(); src.stop(audioCtx.currentTime+0.25);
+}
+
+// ---------------- particles ----------------
+function spawnSpark(x,y,power){
+  if(MAX_PARTICLES <= 0) return; // ліміт 0 → іскри вимкнено
+  let count = Math.ceil((5 + power*14*Math.random()) * SPARK_RATE_MUL);
+  const room = MAX_PARTICLES - particles.length;
+  if(room <= 0) return;
+  if(count > room) count = room;
+  for(let i=0;i<count;i++){
+    const ang = (Math.random()-0.5)*Math.PI*1.4 - Math.PI/2;
+    const spd = (180 + Math.random()*380) * power;
+    particles.push({
+      x:x+(Math.random()-0.5)*10, y:y+(Math.random()-0.5)*6,
+      vx:Math.cos(ang)*spd + (Math.random()-0.5)*120*power,
+      vy:Math.sin(ang)*spd - Math.random()*60*power,
+      life:0, maxLife:0.3+Math.random()*0.5,
+      size:(1.6+Math.random()*3.8)*SPARK_SIZE_MUL,
+      color: Math.random()<0.55?'255,255,255':(Math.random()<0.5?'255,215,90':'140,210,255')
+    });
+  }
+}
+function spawnBounceBurst(x,y,power){
+  if(MAX_PARTICLES <= 0) return;
+  let count = Math.ceil((18 + power*30) * SPARK_RATE_MUL);
+  const room = MAX_PARTICLES - particles.length;
+  if(room <= 0) return;
+  if(count > room) count = room;
+  for(let i=0;i<count;i++){
+    const ang = Math.random()*Math.PI*2;
+    const spd = (200 + Math.random()*520) * (0.6+power*0.6);
+    particles.push({
+      x:x+(Math.random()-0.5)*16, y:y+(Math.random()-0.5)*8,
+      vx:Math.cos(ang)*spd,
+      vy:Math.sin(ang)*spd - Math.random()*120,
+      life:0, maxLife:0.4+Math.random()*0.6,
+      size:(2+Math.random()*4.5)*SPARK_SIZE_MUL,
+      color: Math.random()<0.5?'255,255,255':(Math.random()<0.5?'255,200,70':'120,200,255')
+    });
+  }
+  flashAlpha = Math.min(0.75, 0.25 + power*0.45);
+}
+function enforceCap(){
+  if(particles.length > MAX_PARTICLES){
+    particles.splice(0, particles.length - MAX_PARTICLES);
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.vy += 650*dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.life += dt;
+    if(p.life>p.maxLife) particles.splice(i,1);
+  }
+}
+function drawParticles(){
+  const n = particles.length;
+  if(n === 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  // оптимізація: при великій кількості частинок зменшуємо shadowBlur
+  const blur = n > 20000 ? 0 : (n > 5000 ? 6 : 14);
+  if(blur > 0){
+    for(let i=0;i<n;i++){
+      const p = particles[i];
+      const a = 1-p.life/p.maxLife;
+      ctx.beginPath();
+      ctx.fillStyle=`rgba(${p.color},${a})`;
+      ctx.shadowColor=`rgba(${p.color},${a})`;
+      ctx.shadowBlur=blur;
+      ctx.arc(p.x,p.y,p.size*a+0.5,0,Math.PI*2);
+      ctx.fill();
+    }
+  } else {
+    ctx.shadowBlur=0;
+    for(let i=0;i<n;i++){
+      const p = particles[i];
+      const a = 1-p.life/p.maxLife;
+      ctx.beginPath();
+      ctx.fillStyle=`rgba(${p.color},${a})`;
+      ctx.arc(p.x,p.y,p.size*a+0.5,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawBolt(x1,y1,x2,y2,intensity){
+  // товстіша, більш «молнієподібна» дуга з гілками
+  const segs=8;
+  const pts=[{x:x1,y:y1}];
+  for(let i=1;i<segs;i++){
+    const t=i/segs;
+    pts.push({
+      x:x1+(x2-x1)*t+(Math.random()-0.5)*18*intensity,
+      y:y1+(y2-y1)*t+(Math.random()-0.5)*12*intensity
+    });
+  }
+  pts.push({x:x2,y:y2});
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  // зовнішнє сяйво
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(const p of pts.slice(1)) ctx.lineTo(p.x,p.y);
+  ctx.strokeStyle=`rgba(120,200,255,${0.5*intensity})`;
+  ctx.lineWidth=8*intensity; ctx.shadowColor='#6cf'; ctx.shadowBlur=24;
+  ctx.stroke();
+  // внутрішнє ядро
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(const p of pts.slice(1)) ctx.lineTo(p.x,p.y);
+  ctx.strokeStyle=`rgba(255,255,255,${0.95*intensity})`;
+  ctx.lineWidth=2.2; ctx.shadowBlur=14;
+  ctx.stroke();
+  // гілки
+  if(intensity>0.5){
+    for(let b=1;b<pts.length-1;b+=2){
+      if(Math.random()<0.5){
+        const bx=pts[b].x+(Math.random()-0.5)*40*intensity;
+        const by=pts[b].y+(Math.random()-0.5)*30*intensity;
+        ctx.beginPath();
+        ctx.moveTo(pts[b].x,pts[b].y);
+        ctx.lineTo(bx,by);
+        ctx.strokeStyle=`rgba(180,220,255,${0.4*intensity})`;
+        ctx.lineWidth=2*intensity; ctx.shadowBlur=12;
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// ---------------- kinematics helper ----------------
+function circleIntersect(b, a, rB, rA, side){
+  const dx=a.x-b.x, dy=a.y-b.y;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if(d<=0.0001 || d>rB+rA || d<Math.abs(rB-rA)){
+    return { x: b.x + side*50, y: (b.y+a.y)/2 };
+  }
+  const aDist=(rB*rB-rA*rA+d*d)/(2*d);
+  const h=Math.sqrt(Math.max(0,rB*rB-aDist*aDist));
+  const xm=b.x+aDist*dx/d, ym=b.y+aDist*dy/d;
+  const perpX=-dy/d, perpY=dx/d;
+  const p1={x:xm+h*perpX,y:ym+h*perpY};
+  const p2={x:xm-h*perpX,y:ym-h*perpY};
+  if(side>0) return p1.x>p2.x?p1:p2;
+  return p1.x<p2.x?p1:p2;
+}
+
+// ---------------- update ----------------
+let currentGap = 0;
+let contactState = 'none';
+let currentIntensity = 0;
+
+function update(dt){
+  const maxE = maxExtension(), minE = minExtension();
+
+  if(controlMode === 'dragging'){
+    // миша керує extension безпосередньо, швидкість = 0
+    extVelocity = 0;
+  } else if(controlMode === 'springing'){
+    // пружина тягне вгору до провода з невеликим демпфуванням → відскок
+    const force = -SPRING_K * (extension - springTarget);
+    extVelocity += force * dt;
+    extVelocity -= SPRING_C * extVelocity * dt;
+    extension += extVelocity * dt;
+
+    // жорсткий відскок від провода (не даємо пробити нагору)
+    if(extension > maxE){
+      extension = maxE;
+      if(extVelocity > 30){
+        // великий спалах іскор при ударі
+        const impactPower = Math.min(1.4, extVelocity / 280);
+        spawnBounceBurst(W*0.5, wireY(), impactPower);
+        playCrackle(0.6 + impactPower*0.4);
+        lastBounceV = extVelocity;
+      }
+      extVelocity = -extVelocity * BOUNCE; // пружний відскок
+    }
+
+    // зупинка коли коливання згасло
+    if(Math.abs(extVelocity) < SETTLE_V && Math.abs(extension - springTarget) < SETTLE_X){
+      extension = springTarget;
+      extVelocity = 0;
+      controlMode = 'idle';
+    }
+  } else {
+    // idle — керування клавіатурою (як раніше)
+    if(keys['ArrowUp']||keys['KeyW']) extVelocity += EXT_ACCEL*dt;
+    else if(keys['ArrowDown']||keys['KeyS']) extVelocity -= EXT_ACCEL*dt;
+    else extVelocity *= EXT_FRICTION;
+
+    extVelocity = Math.max(-EXT_MAXSPEED, Math.min(EXT_MAXSPEED, extVelocity));
+    extension += extVelocity*dt;
+
+    if(extension < minE){ extension = minE; extVelocity = 0; }
+    if(extension > maxE){ extension = maxE; extVelocity = 0; }
+  }
+
+  // загасання вспышки
+  if(flashAlpha > 0){ flashAlpha = Math.max(0, flashAlpha - dt*1.6); }
+
+  scrollX += 40*dt;
+
+  const cx = W*0.5;
+  const headY = roofY() - extension;
+  const stripY = headY - stripOffset;
+  currentGap = Math.max(0, stripY - wireY());
+
+  if(currentGap <= 0.5){
+    contactState = 'contact';
+    currentIntensity = 0.55;
+    if(Math.random()<0.55) spawnSpark(cx, wireY(), 0.65);
+    if(Math.random()<0.35) spawnSpark(cx + (Math.random()-0.5)*60, wireY(), 0.5);
+    playCrackle(0.4);
+  } else if(currentGap <= SPARK_ZONE){
+    contactState = 'spark';
+    currentIntensity = 1 - currentGap/SPARK_ZONE;
+    if(Math.random() < 0.3+currentIntensity*0.7) spawnSpark(cx + (Math.random()-0.5)*40, (stripY+wireY())/2, 0.45+currentIntensity*0.8);
+    playCrackle(0.3+currentIntensity*0.6);
+  } else {
+    contactState = 'none';
+    currentIntensity = 0;
+  }
+
+  updateParticles(dt);
+  enforceCap();
+}
+
+// ---------------- drawing ----------------
+function drawBackground(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0c1430');
+  g.addColorStop(0.55,'#17244a');
+  g.addColorStop(1,'#223659');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  for(let i=0;i<50;i++){
+    const sx=(i*149+scrollX*0.1)%W;
+    const sy=(i*61)%(H*0.4);
+    ctx.globalAlpha=0.25+0.25*Math.sin(i+scrollX*0.001);
+    ctx.fillRect(sx,sy,1.4,1.4);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawWireAndPoles(){
+  const wy = wireY();
+  const poleSpacing = 300;
+  const offset = scrollX % poleSpacing;
+  ctx.strokeStyle='#4a4a4a';
+  for(let sx=-offset; sx<W; sx+=poleSpacing){
+    ctx.lineWidth=7;
+    ctx.beginPath();
+    ctx.moveTo(sx, roofY()+40);
+    ctx.lineTo(sx, wy-55);
+    ctx.stroke();
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(sx, wy-55);
+    ctx.lineTo(sx, wy);
+    ctx.stroke();
+  }
+  ctx.strokeStyle='#dcdcdc';
+  ctx.lineWidth=3;
+  ctx.shadowColor='rgba(255,255,255,0.35)';
+  ctx.shadowBlur=5;
+  ctx.beginPath();
+  ctx.moveTo(0,wy);
+  ctx.lineTo(W,wy);
+  ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // лёгкая подпись
+  ctx.fillStyle='rgba(220,220,220,0.6)';
+  ctx.font='12px monospace';
+  ctx.fillText('контактный провод', 14, wy-10);
+}
+
+function drawRoof(){
+  const ry = roofY();
+  ctx.fillStyle='#1a7a63';
+  ctx.fillRect(0, ry+8, W, H-(ry+8));
+  ctx.fillStyle='#0f5a48';
+  ctx.fillRect(0, ry+8, W, 6);
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawPantograph(){
+  const cx = W*0.5;
+  const ry = roofY();
+  const headY = ry - extension;
+  const stripY = headY - stripOffset;
+
+  const baseLeft  = {x: cx-baseOffset, y: ry};
+  const baseRight = {x: cx+baseOffset, y: ry};
+  const apex      = {x: cx, y: headY};
+
+  const kneeRight = circleIntersect(baseRight, apex, La, Lu, +1);
+  const kneeLeft  = circleIntersect(baseLeft,  apex, La, Lu, -1);
+
+  // --- изоляторы на крыше ---
+  ctx.fillStyle = '#d9d9d9';
+  [baseLeft, baseRight].forEach(b=>{
+    roundRect(b.x-8, b.y, 16, 22, 4);
+    ctx.fill();
+    ctx.fillStyle='#aaa';
+    ctx.fillRect(b.x-9, b.y+6, 18, 3);
+    ctx.fillRect(b.x-9, b.y+13, 18, 3);
+    ctx.fillStyle = '#d9d9d9';
+  });
+
+  const metal = '#8a3326';
+  const metalDark = '#5e2015';
+
+  function rod(p1,p2,w){
+    ctx.strokeStyle = metal;
+    ctx.lineWidth = w;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(p1.x,p1.y);
+    ctx.lineTo(p2.x,p2.y);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = Math.max(1, w*0.3);
+    ctx.beginPath();
+    ctx.moveTo(p1.x,p1.y);
+    ctx.lineTo(p2.x,p2.y);
+    ctx.stroke();
+  }
+
+  // диагональные скрещенные тяги (как на фото)
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  rod(baseLeft,  kneeRight, 3.2);
+  rod(baseRight, kneeLeft,  3.2);
+  ctx.restore();
+
+  // основные плечи ромба
+  rod(baseLeft,  kneeLeft,  7);
+  rod(baseRight, kneeRight, 7);
+  rod(kneeLeft,  apex,      6);
+  rod(kneeRight, apex,      6);
+
+  // пружинный блок у основания
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const springY = ry - 4;
+  const coils = 10;
+  const spanW = baseRight.x - baseLeft.x;
+  for(let i=0;i<=coils;i++){
+    const t = i/coils;
+    const x = baseLeft.x + spanW*t;
+    const y = springY - (i%2===0 ? 6 : 0);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // шарниры (чёрные точки)
+  [baseLeft, baseRight, kneeLeft, kneeRight, apex].forEach(p=>{
+    ctx.beginPath();
+    ctx.fillStyle = metalDark;
+    ctx.arc(p.x,p.y,5,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // --- головной узел (шкивы) ---
+  ctx.fillStyle = '#444';
+  ctx.beginPath(); ctx.arc(apex.x-10, apex.y-6, 7, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(apex.x+10, apex.y-6, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#777'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(apex.x-10, apex.y-6, 7, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(apex.x+10, apex.y-6, 7, 0, Math.PI*2); ctx.stroke();
+
+  // стойки, держащие полоз над узлом
+  const headHalf = 95;
+  const headLeft  = {x: apex.x-headHalf, y: stripY};
+  const headRight = {x: apex.x+headHalf, y: stripY};
+  rod({x:apex.x-10, y:apex.y-10}, headLeft,  4);
+  rod({x:apex.x+10, y:apex.y-10}, headRight, 4);
+  rod({x:apex.x, y:apex.y-14}, {x:apex.x, y:stripY}, 3);
+
+  // полоз (пан-head)
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 8;
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(headLeft.x, headLeft.y);
+  ctx.lineTo(headRight.x, headRight.y);
+  ctx.stroke();
+
+  // контактная угольная/медная полоса
+  const glow = contactState !== 'none' ? (0.5+currentIntensity*0.5) : 0;
+  ctx.strokeStyle = `rgba(230,195,90,1)`;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(headLeft.x, headLeft.y-3);
+  ctx.lineTo(headRight.x, headRight.y-3);
+  ctx.stroke();
+
+  if(glow>0){
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    ctx.strokeStyle = `rgba(255,230,150,${glow})`;
+    ctx.lineWidth = 8;
+    ctx.shadowColor = '#ffdd88';
+    ctx.shadowBlur = 20*glow;
+    ctx.beginPath();
+    ctx.moveTo(headLeft.x, headLeft.y-3);
+    ctx.lineTo(headRight.x, headRight.y-3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  return { stripY, cx };
+}
+
+function drawSparksAt(cx, stripY){
+  const wy = wireY();
+  if(contactState === 'contact'){
+    // несколько дуг одновременно для большей искры
+    drawBolt(cx-30, stripY-3, cx-30, wy, 0.7);
+    drawBolt(cx+30, stripY-3, cx+30, wy, 0.7);
+    if(Math.random()<0.5) drawBolt(cx, stripY-3, cx+(Math.random()-0.5)*20, wy, 0.5);
+  } else if(contactState === 'spark'){
+    drawBolt(cx, stripY-3, cx, wy, 0.45+currentIntensity*1.1);
+    if(currentIntensity>0.6 && Math.random()<0.4){
+      drawBolt(cx-20, stripY-3, cx-20+(Math.random()-0.5)*15, wy, 0.4+currentIntensity*0.7);
+    }
+  }
+}
+
+function updateHUD(){
+  const maxE = maxExtension();
+  extValEl.textContent = Math.round(extension);
+  extBarEl.style.width = Math.min(100, (extension/maxE)*100) + '%';
+  gapValEl.textContent = Math.round(currentGap);
+
+  let msg='', color='#fff';
+  if(controlMode==='dragging'){ msg='🖱️ ТЯНИ МЫШЬ — утримуй пантограф'; color='#9cf'; }
+  else if(controlMode==='springing'){ msg='🌀 ПРУЖИНИТЬ — відскок від провода…'; color='#fc6'; }
+  else if(contactState==='contact'){ msg='✅ УСТОЙЧИВЫЙ КОНТАКТ (предел достигнут — выше нельзя)'; color='#6f6'; }
+  else if(contactState==='spark'){ msg='⚡ ИСКРЕНИЕ'; color='#ffd84d'; }
+  else { msg='❌ НЕТ КОНТАКТА — опущено слишком низко'; color='#888'; }
+  stateTextEl.textContent = msg;
+  stateTextEl.style.color = color;
+}
+
+function draw(){
+  drawBackground();
+  drawWireAndPoles();
+  drawRoof();
+  const {stripY, cx} = drawPantograph();
+  drawSparksAt(cx, stripY);
+  drawParticles();
+  // вспышка при мощном отскоке
+  if(flashAlpha > 0){
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle=`rgba(255,250,220,${flashAlpha})`;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+  updateHUD();
+}
+
+function loop(now){
+  const dt = Math.min(0.05,(now-lastTime)/1000);
+  lastTime = now;
+  update(dt);
+  draw();
+  // --- FPS / live count ---
+  frameCount++;
+  fpsAccum += dt;
+  if(fpsAccum >= 0.5){
+    const fps = Math.round(frameCount / fpsAccum);
+    fpsValEl.textContent = fps;
+    liveCountEl.textContent = particles.length.toLocaleString('ru-RU');
+    // показуємо попередження про високе навантаження при <40 FPS або >50K частинок
+    perfRowEl.style.display = (fps < 40 || particles.length > 50000) ? 'flex' : 'none';
+    frameCount = 0; fpsAccum = 0;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------------- menu UI ----------------
+const capSlider  = document.getElementById('capSlider');
+const capValEl   = document.getElementById('capVal');
+const szSlider   = document.getElementById('szSlider');
+const szValEl    = document.getElementById('szVal');
+const rateSlider = document.getElementById('rateSlider');
+const rateValEl  = document.getElementById('rateVal');
+const liveCountEl= document.getElementById('liveCount');
+const fpsValEl   = document.getElementById('fpsVal');
+const perfRowEl  = document.getElementById('perfRow');
+const menuEl     = document.getElementById('menu');
+const menuToggle = document.getElementById('menuToggle');
+
+let frameCount = 0, fpsAccum = 0;
+
+function formatCount(v){
+  if(v >= 1000000) return (v/1000000).toFixed(1)+'M';
+  if(v >= 1000) return (v/1000).toFixed(v>=10000?0:1)+'K';
+  return String(v);
+}
+function setActivePreset(v){
+  document.querySelectorAll('#menu .preset button').forEach(b=>{
+    b.classList.toggle('active', +b.dataset.v === v);
+  });
+}
+capSlider.addEventListener('input', e=>{
+  MAX_PARTICLES = parseInt(e.target.value, 10);
+  capValEl.textContent = MAX_PARTICLES === 0 ? 'ВИМК' : MAX_PARTICLES.toLocaleString('ru-RU');
+  enforceCap();
+  setActivePreset(MAX_PARTICLES);
+});
+szSlider.addEventListener('input', e=>{
+  SPARK_SIZE_MUL = parseFloat(e.target.value);
+  szValEl.textContent = SPARK_SIZE_MUL.toFixed(1)+'×';
+});
+rateSlider.addEventListener('input', e=>{
+  SPARK_RATE_MUL = parseFloat(e.target.value);
+  rateValEl.textContent = SPARK_RATE_MUL.toFixed(1)+'×';
+});
+document.querySelectorAll('#menu .preset button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const v = parseInt(btn.dataset.v, 10);
+    MAX_PARTICLES = v;
+    capSlider.value = v;
+    capValEl.textContent = v.toLocaleString('ru-RU');
+    enforceCap();
+    setActivePreset(v);
+  });
+});
+// згортання меню на мобільних
+menuToggle.addEventListener('click', ()=>{
+  menuEl.style.display = 'block';
+  menuToggle.style.display = 'none';
+});
+function checkMenuToggle(){
+  if(window.innerWidth < 480){
+    menuEl.style.display = 'none';
+    menuToggle.style.display = 'block';
+  } else {
+    menuEl.style.display = 'block';
+    menuToggle.style.display = 'none';
+  }
+}
+window.addEventListener('resize', checkMenuToggle);
+checkMenuToggle();
+
+// ініціалізація значень
+capValEl.textContent = MAX_PARTICLES.toLocaleString('ru-RU');
+szValEl.textContent = SPARK_SIZE_MUL.toFixed(1)+'×';
+rateValEl.textContent = SPARK_RATE_MUL.toFixed(1)+'×';
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
