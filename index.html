@@ -1,198 +1,426 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ Симулятор пантографа</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>⚡ Pantograph 2D Pro</title>
 <style>
-  html,body{margin:0;padding:0;overflow:hidden;background:#0b1020;font-family:"Segoe UI",Arial,sans-serif;}
+  html,body{margin:0;padding:0;overflow:hidden;background:#0a1028;font-family:"Segoe UI",Arial,sans-serif;color:#fff;}
   canvas{display:block;}
+
   #hud{
     position:fixed;top:14px;left:14px;color:#fff;z-index:5;
     text-shadow:0 0 6px #000;user-select:none;
-    background:rgba(0,0,0,0.35);padding:12px 16px;border-radius:10px;
-    backdrop-filter:blur(2px);
+    background:rgba(0,0,0,0.55);padding:12px 16px;border-radius:10px;
+    backdrop-filter:blur(3px);
+    border:1px solid rgba(255,255,255,0.12);
+    max-width:340px;font-size:13px;line-height:1.6;
   }
   #hud h2{margin:0 0 8px 0;font-size:16px;color:#ffd84d;}
   #hud .row{font-size:13px;margin:3px 0;opacity:0.95;}
-  #hud .state{font-weight:bold;font-size:15px;margin-top:8px;min-height:20px;}
-  .bar{width:200px;height:10px;background:rgba(255,255,255,0.15);
+  #hud .state{font-weight:bold;font-size:14px;margin-top:8px;min-height:20px;color:#9cf;}
+  .bar{width:200px;height:9px;background:rgba(255,255,255,0.15);
        border:1px solid rgba(255,255,255,0.4);border-radius:5px;overflow:hidden;margin-top:4px;}
   .fill{height:100%;width:0%;transition:width .08s linear;background:linear-gradient(90deg,#4fc3f7,#2196f3);}
   #controls{
     position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
-    color:#ccc;font-size:13px;text-shadow:0 0 5px #000;z-index:5;opacity:0.85;
-    user-select:none;text-align:center;
-    max-width:92%;line-height:1.7;
+    color:#ccc;font-size:12px;text-shadow:0 0 5px #000;z-index:5;opacity:0.85;
+    user-select:none;text-align:center;max-width:92%;line-height:1.7;
   }
   #controls kbd{
     background:#222;border:1px solid #555;border-radius:4px;padding:2px 7px;margin:0 3px;
     font-family:monospace;color:#fff;
   }
 
-  /* боковое меню настроек */
+  /* menu — same pro-edition style */
   #menu{
-    position:fixed;top:14px;right:14px;z-index:6;color:#fff;user-select:none;
-    background:rgba(0,0,0,0.45);padding:14px 16px;border-radius:12px;
-    backdrop-filter:blur(3px);width:260px;font-size:13px;
+    position:fixed;top:14px;right:14px;z-index:10;user-select:none;
+    background:rgba(0,0,0,0.6);padding:14px 16px;border-radius:12px;
+    backdrop-filter:blur(3px);width:290px;font-size:12.5px;
     border:1px solid rgba(255,255,255,0.12);
+    max-height:calc(100vh - 28px);overflow-y:auto;
   }
-  #menu h3{margin:0 0 10px 0;font-size:14px;color:#ffd84d;font-weight:600;}
-  #menu .lbl{display:flex;justify-content:space-between;margin:8px 0 4px 0;opacity:0.95;}
+  #menu::-webkit-scrollbar{width:6px;}
+  #menu::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px;}
+  #menu h3{margin:0 0 6px 0;font-size:13px;color:#ffd84d;cursor:pointer;user-select:none;
+           padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);}
+  #menu h3::before{content:'▾ ';opacity:0.6;font-size:10px;}
+  #menu h3.collapsed::before{content:'▸ ';}
+  #menu .section{margin-bottom:10px;}
+  #menu .section.collapsed .section-body{display:none;}
+  #menu .section-body{padding-top:6px;}
+  #menu .lbl{display:flex;justify-content:space-between;margin:7px 0 3px 0;align-items:center;}
   #menu .lbl b{color:#9cf;}
   #menu input[type=range]{
-    -webkit-appearance:none;appearance:none;width:100%;height:6px;
-    background:rgba(255,255,255,0.18);border-radius:4px;outline:none;cursor:pointer;
+    -webkit-appearance:none;appearance:none;width:100%;height:5px;
+    background:rgba(255,255,255,0.18);border-radius:3px;outline:none;cursor:pointer;
   }
   #menu input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
-    background:#ffd84d;border:2px solid #1a1a1a;cursor:pointer;box-shadow:0 0 6px rgba(255,216,77,0.7);
+    -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
+    background:#ffd84d;border:2px solid #1a1a1a;cursor:pointer;
   }
   #menu input[type=range]::-moz-range-thumb{
-    width:16px;height:16px;border-radius:50%;background:#ffd84d;border:2px solid #1a1a1a;
-    cursor:pointer;box-shadow:0 0 6px rgba(255,216,77,0.7);
+    width:14px;height:14px;border-radius:50%;background:#ffd84d;border:2px solid #1a1a1a;cursor:pointer;
   }
-  #menu .preset{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
-  #menu .preset button{
-    flex:1;min-width:0;font-size:11px;padding:5px 4px;border-radius:6px;
-    background:#2a2f4a;color:#fff;border:1px solid #444;cursor:pointer;
-    transition:background .15s,border-color .15s;font-family:inherit;
+  #menu input[type=color]{
+    width:34px;height:24px;border:none;background:transparent;cursor:pointer;border-radius:4px;padding:0;
   }
-  #menu .preset button:hover{background:#3a4170;border-color:#6cf;}
-  #menu .preset button.active{background:#3a5a8a;border-color:#9cf;}
-  #menu .stats{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);
-              font-size:12px;opacity:0.85;}
-  #menu .stats .row{display:flex;justify-content:space-between;margin:3px 0;}
+  #menu input[type=color]::-webkit-color-swatch{border:1px solid #555;border-radius:3px;}
+  #menu input[type=color]::-moz-color-swatch{border:1px solid #555;border-radius:3px;}
+  #menu select{
+    background:#222;color:#fff;border:1px solid #555;border-radius:4px;
+    padding:3px 6px;font-size:11px;font-family:inherit;cursor:pointer;width:100%;
+  }
+  #menu .btn{
+    background:#2a2f4a;color:#fff;border:1px solid #555;border-radius:5px;
+    padding:5px 8px;cursor:pointer;font-size:11.5px;font-family:inherit;
+    transition:background .15s,border-color .15s;
+  }
+  #menu .btn:hover{background:#3a4170;border-color:#6cf;}
+  #menu .btn.active{background:#3a5a8a;border-color:#9cf;}
+  #menu .btnrow{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+  #menu .btnrow .btn{flex:1;min-width:0;}
+  #menu .toggle{position:relative;width:36px;height:20px;background:#444;border-radius:10px;cursor:pointer;
+                transition:background .2s;flex-shrink:0;}
+  #menu .toggle.on{background:#2196f3;}
+  #menu .toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+                       background:#fff;border-radius:50%;transition:transform .2s;}
+  #menu .toggle.on::after{transform:translateX(16px);}
+  #menu .stats{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.15);font-size:11.5px;}
+  #menu .stats .row{display:flex;justify-content:space-between;margin:2px 0;opacity:0.9;}
   #menu .stats .warn{color:#f86;font-weight:bold;}
-  #menuToggle{
-    position:fixed;top:14px;right:14px;z-index:7;
-    background:rgba(0,0,0,0.6);color:#ffd84d;border:1px solid rgba(255,255,255,0.2);
-    border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;display:none;
-  }
+  .hint{opacity:0.7;font-size:10.5px;margin-top:5px;}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="hud">
-  <h2>⚡ Пантограф — симулятор</h2>
+  <h2>⚡ Pantograph 2D Pro</h2>
   <div class="row">Высота подъёма: <span id="extVal">0</span> px</div>
   <div class="bar"><div id="extBar" class="fill"></div></div>
   <div class="row">Зазор до провода: <span id="gapVal">0</span> px</div>
+  <div class="row">Скорость: <span id="velVal">0</span> px/s</div>
   <div class="state" id="stateText">—</div>
 </div>
 
 <div id="controls">
   <kbd>↑</kbd><kbd>W</kbd> поднять &nbsp; <kbd>↓</kbd><kbd>S</kbd> опустить &nbsp; <kbd>Space</kbd> в среднее положение<br>
-  🖱️ <b>Мышь</b>: зажми и тяни — опустить пантограф, отпусти — отпружинит вверх и отскочит от провода
+  🖱️ <b>Мышь</b>: зажми и тяни полоз — отпусти → отпружинит и отскочит от провода
 </div>
 
-<button id="menuToggle">⚙️</button>
 <aside id="menu">
-  <h3>⚙️ Настройки искр</h3>
+  <!-- ===== SPARKS ===== -->
+  <div class="section" id="sec-sparks">
+    <h3>⚡ Sparks</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Max particles</span><b id="capVal">5000</b></div>
+      <input type="range" id="capSlider" min="0" max="100000" step="100" value="5000">
+      <div class="btnrow" style="margin-top:4px;">
+        <button class="btn" data-pcap="1000">1K</button>
+        <button class="btn" data-pcap="5000">5K</button>
+        <button class="btn" data-pcap="20000">20K</button>
+        <button class="btn" data-pcap="50000">50K</button>
+        <button class="btn" data-pcap="100000">100K</button>
+      </div>
 
-  <div class="lbl"><span>Максимум частиц</span><b id="capVal">2000</b></div>
-  <input type="range" id="capSlider" min="0" max="500000" step="50" value="2000">
-  <div class="preset">
-    <button data-v="500">500</button>
-    <button data-v="2000" class="active">2K</button>
-    <button data-v="10000">10K</button>
-    <button data-v="50000">50K</button>
-    <button data-v="200000">200K</button>
-    <button data-v="500000">500K</button>
+      <div class="lbl"><span>Spark size</span><b id="szVal">1.0×</b></div>
+      <input type="range" id="szSlider" min="0.3" max="3" step="0.1" value="1">
+
+      <div class="lbl"><span>Spark density</span><b id="rateVal">1.0×</b></div>
+      <input type="range" id="rateSlider" min="0" max="3" step="0.1" value="1">
+
+      <div class="lbl"><span>Spark lifespan</span><b id="lifeVal">1.0×</b></div>
+      <input type="range" id="lifeSlider" min="0.2" max="3" step="0.1" value="1">
+
+      <div class="lbl"><span>Spark speed</span><b id="spdVal">1.0×</b></div>
+      <input type="range" id="spdSlider" min="0.3" max="3" step="0.1" value="1">
+
+      <div class="lbl"><span>Color palette</span></div>
+      <select id="paletteSel">
+        <option value="electric">Electric (white/blue/yellow)</option>
+        <option value="fire">Fire (orange/red)</option>
+        <option value="rainbow">Rainbow</option>
+        <option value="plasma">Plasma (purple/pink)</option>
+        <option value="toxic">Toxic (green)</option>
+      </select>
+
+      <div class="lbl" style="margin-top:8px;"><span>Lightning branches</span>
+        <div class="toggle on" id="branchToggle"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="lbl" style="margin-top:14px;"><span>Размер искры</span><b id="szVal">1.0×</b></div>
-  <input type="range" id="szSlider" min="0.3" max="3" step="0.1" value="1">
+  <!-- ===== PERFORMANCE ===== -->
+  <div class="section" id="sec-perf">
+    <h3>🚀 Performance</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Quality preset</span></div>
+      <div class="btnrow">
+        <button class="btn" data-q="auto" title="Auto-adjust based on FPS">🤖 Auto</button>
+        <button class="btn active" data-q="quality">✨ Quality</button>
+        <button class="btn" data-q="balanced">⚖️ Balanced</button>
+        <button class="btn" data-q="perf">⚡ Perf</button>
+        <button class="btn" data-q="potato">🥔 Potato</button>
+      </div>
+      <div class="hint" id="qHint">Quality: arcs + glow. Best visuals.</div>
 
-  <div class="lbl" style="margin-top:14px;"><span>Плотность искр</span><b id="rateVal">1.0×</b></div>
-  <input type="range" id="rateSlider" min="0" max="3" step="0.1" value="1">
+      <div class="lbl" style="margin-top:10px;"><span>Target FPS</span><b id="fpsTargetVal">60</b></div>
+      <input type="range" id="fpsTargetSlider" min="30" max="120" step="5" value="60">
 
-  <div class="stats">
-    <div class="row"><span>Активно частиц:</span><b id="liveCount">0</b></div>
-    <div class="row"><span>FPS:</span><b id="fpsVal">—</b></div>
-    <div class="row" id="perfRow" style="display:none;"><span class="warn">⚠ Високе навантаження</span><b></b></div>
+      <div class="lbl" style="margin-top:8px;"><span>Auto-throttle (drop sparks when lagging)</span>
+        <div class="toggle on" id="throttleToggle"></div>
+      </div>
+      <div class="hint">If FPS &lt; target by 30%, the cap auto-shrinks until stable.</div>
+
+      <div class="lbl" style="margin-top:8px;"><span>Square particles (fastest)</span>
+        <div class="toggle" id="squareToggle"></div>
+      </div>
+      <div class="hint">fillRect is 5–10× faster than arc on low-end GPUs.</div>
+    </div>
   </div>
+
+  <!-- ===== PHYSICS ===== -->
+  <div class="section" id="sec-physics">
+    <h3>🌀 Physics</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Spring stiffness</span><b id="springVal">220</b></div>
+      <input type="range" id="springSlider" min="50" max="600" step="10" value="220">
+
+      <div class="lbl"><span>Bounce restitution</span><b id="bounceVal">0.55</b></div>
+      <input type="range" id="bounceSlider" min="0" max="0.95" step="0.05" value="0.55">
+
+      <div class="lbl"><span>Damping</span><b id="dampVal">4.5</b></div>
+      <input type="range" id="dampSlider" min="0.5" max="20" step="0.5" value="4.5">
+
+      <div class="lbl"><span>Spark gravity</span><b id="gravVal">650</b></div>
+      <input type="range" id="gravSlider" min="-300" max="1500" step="50" value="650">
+
+      <div class="lbl" style="margin-top:8px;"><span>Spark cutoff height</span><b id="cutoffVal">404 px</b></div>
+      <input type="range" id="cutoffSlider" min="0" max="800" step="1" value="404">
+      <div class="hint">When extension reaches this height, sparking stops (0 = disabled).</div>
+    </div>
+  </div>
+
+  <!-- ===== ENVIRONMENT ===== -->
+  <div class="section" id="sec-env">
+    <h3>🌍 Environment</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Time of day</span></div>
+      <div class="btnrow">
+        <button class="btn" data-tod="dawn">🌅 Dawn</button>
+        <button class="btn active" data-tod="day">☀️ Day</button>
+        <button class="btn" data-tod="dusk">🌆 Dusk</button>
+        <button class="btn" data-tod="night">🌙 Night</button>
+      </div>
+
+      <div class="lbl" style="margin-top:8px;"><span>Train speed</span><b id="speedVal">0 m/s</b></div>
+      <input type="range" id="speedSlider" min="0" max="120" step="1" value="0">
+
+      <div class="lbl"><span>Wire voltage</span><b id="voltVal">25 kV</b></div>
+      <input type="range" id="voltSlider" min="0" max="50" step="1" value="25">
+
+      <div class="lbl" style="margin-top:8px;"><span>Stars</span>
+        <div class="toggle on" id="starsToggle"></div>
+      </div>
+      <div class="lbl"><span>Fog / haze</span>
+        <div class="toggle on" id="fogToggle"></div>
+      </div>
+      <div class="lbl"><span>Wind on sparks</span>
+        <div class="toggle on" id="windToggle"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOMIZATION ===== -->
+  <div class="section" id="sec-color">
+    <h3>🎨 Customization</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Pantograph arms</span><input type="color" id="armColor" value="#8a3326"></div>
+      <div class="lbl"><span>Contact strip</span><input type="color" id="stripColor" value="#e6c35a"></div>
+      <div class="lbl"><span>Train roof</span><input type="color" id="roofColor" value="#1a7a63"></div>
+      <div class="lbl"><span>Sky tint</span><input type="color" id="skyColor" value="#0a1028"></div>
+
+      <div class="lbl" style="margin-top:8px;"><span>Bolt thickness</span><b id="boltVal">1.0×</b></div>
+      <input type="range" id="boltSlider" min="0.3" max="3" step="0.1" value="1">
+    </div>
+  </div>
+
+  <!-- ===== AUDIO ===== -->
+  <div class="section" id="sec-audio">
+    <h3>🔊 Audio</h3>
+    <div class="section-body">
+      <div class="lbl"><span>Crackle sound</span>
+        <div class="toggle on" id="audioToggle"></div>
+      </div>
+      <div class="lbl"><span>Volume</span><b id="volVal">50%</b></div>
+      <input type="range" id="volSlider" min="0" max="100" step="5" value="50">
+      <div class="hint">Procedural WebAudio — no asset.</div>
+    </div>
+  </div>
+
+  <!-- ===== PRESETS ===== -->
+  <div class="section" id="sec-presets">
+    <h3>📤 Presets</h3>
+    <div class="section-body">
+      <div class="btnrow">
+        <button class="btn" id="exportBtn">📋 Copy preset</button>
+        <button class="btn" id="importBtn">📥 Paste preset</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="uploadBtn">📁 Load file</button>
+        <button class="btn" id="saveBtn">💾 Save file</button>
+      </div>
+      <input type="file" id="fileInput" accept=".json,.txt" style="display:none;">
+      <div class="lbl" style="margin-top:8px;"><span>Preset code</span></div>
+      <textarea id="presetText" rows="3" style="width:100%;font-family:monospace;font-size:10px;background:#1a1f2e;color:#9cf;border:1px solid #444;border-radius:4px;padding:5px;resize:vertical;" placeholder="Paste a preset code here, then click ‘Paste preset’…"></textarea>
+      <div class="hint" id="presetMsg" style="color:#9cf;">Share your config or import someone else’s.</div>
+
+      <div class="lbl" style="margin-top:10px;"><span>Quick presets</span></div>
+      <div class="btnrow">
+        <button class="btn" data-qp="default">Default</button>
+        <button class="btn" data-qp="storm">Storm</button>
+        <button class="btn" data-qp="subtle">Subtle</button>
+      </div>
+      <div class="btnrow" style="margin-top:4px;">
+        <button class="btn" data-qp="firework">Firework</button>
+        <button class="btn" data-qp="lowend">Low-end</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODES ===== -->
+  <div class="section" id="sec-modes">
+    <h3>🎛️ Modes</h3>
+    <div class="section-body">
+      <div class="btnrow">
+        <button class="btn" id="resetBtn">↺ Reset</button>
+        <button class="btn" id="slomoBtn">🐢 Slow-mo</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="shootUpBtn">⬆️ Lift</button>
+        <button class="btn" id="dropDownBtn">⬇️ Drop</button>
+      </div>
+      <div class="lbl" style="margin-top:8px;"><span>Time scale</span><b id="tsVal">1.0×</b></div>
+      <input type="range" id="tsSlider" min="0.1" max="2" step="0.1" value="1">
+    </div>
+  </div>
+
+  <!-- ===== STATS ===== -->
+  <div class="section" id="sec-stats">
+    <h3>📊 Stats</h3>
+    <div class="section-body">
+      <div class="stats">
+        <div class="row"><span>Live particles:</span><b id="liveCount">0</b></div>
+        <div class="row"><span>Peak particles:</span><b id="peakCount">0</b></div>
+        <div class="row"><span>Total bounces:</span><b id="bounceCount">0</b></div>
+        <div class="row"><span>FPS:</span><b id="fpsVal">—</b></div>
+        <div class="row" id="perfRow" style="display:none;"><span class="warn">⚠ High load</span><b></b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">Tip: click any ▾ title to collapse that section.</div>
 </aside>
 
 <script>
+// ============================================================
+// Feature state
+// ============================================================
+const F = {
+  MAX_PARTICLES: 5000,
+  SPARK_SIZE_MUL: 1.0,
+  SPARK_RATE_MUL: 1.0,
+  SPARK_LIFE_MUL: 1.0,
+  SPARK_SPEED_MUL: 1.0,
+  PALETTE: 'electric',
+  BRANCH: true,
+  SPRING_K: 220,
+  BOUNCE: 0.55,
+  DAMPING: 4.5,
+  GRAVITY: 650,
+  TOD: 'day',
+  TRAIN_SPEED: 0,
+  VOLTAGE: 25,
+  STARS_ON: true,
+  FOG_ON: true,
+  WIND_ON: true,
+  ARM_COLOR: '#8a3326',
+  STRIP_COLOR: '#e6c35a',
+  ROOF_COLOR: '#1a7a63',
+  SKY_COLOR: '#0a1028',
+  BOLT_THICK: 1.0,
+  AUDIO_ON: true,
+  VOLUME: 0.5,
+  TIME_SCALE: 1.0,
+  SPARK_CUTOFF: 404,    // when extension >= this, sparking stops (0 = disabled)
+};
+
+// ============================================================
+// Canvas
+// ============================================================
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W, H;
-function resize(){
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
+function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize);
 resize();
 
+// HUD elements
 const extValEl = document.getElementById('extVal');
 const extBarEl = document.getElementById('extBar');
 const gapValEl = document.getElementById('gapVal');
+const velValEl = document.getElementById('velVal');
 const stateTextEl = document.getElementById('stateText');
 
-// ---------------- geometry params ----------------
+// ============================================================
+// Geometry (in pixels, scales with screen height)
+// ============================================================
 function roofY(){ return H*0.70; }
 function wireY(){ return H*0.14; }
-const stripOffset = 26;     // контактная полоса находится выше точки схождения верхних рычагов
-const baseOffset  = 22;     // половина расстояния между опорами на крыше
-let La, Lu;                 // длины нижнего и верхнего плеча (считаются при resize)
-
+const stripOffset = 26;
+const baseOffset  = 22;
+let La, Lu;
 function recalcArms(){
-  const span = (roofY() - wireY());       // максимальный вертикальный ход
+  const span = roofY() - wireY();
   const needed = Math.sqrt(span*span + baseOffset*baseOffset);
-  La = Lu = needed*0.62;                  // с запасом, чтобы треугольник всегда решался
+  La = Lu = needed*0.62;
 }
 recalcArms();
 window.addEventListener('resize', recalcArms);
 
-function maxExtension(){
-  return roofY() - (wireY() + stripOffset);
-}
-function minExtension(){
-  return 10;
-}
+function maxExtension(){ return roofY() - (wireY() + stripOffset); }
+function minExtension(){ return 10; }
 
-// ---------------- state ----------------
-let extension = 0;
+// ============================================================
+// Physics state
+// ============================================================
+let extension = maxExtension()*0.45;
 let extVelocity = 0;
-let keys = {};
-let particles = [];
-let scrollX = 0;
-let lastTime = performance.now();
-let sparkPulse = 0;
-
-// --- limits & perf tuning ---
-let MAX_PARTICLES = 2000;     // жорсткий ліміт частинок (0..500000)
-let SPARK_SIZE_MUL = 1.0;     // множник розміру іскр
-let SPARK_RATE_MUL = 1.0;     // множник кількості частинок за спавн
+let controlMode = 'idle';
+let springTarget = 0;
+let flashAlpha = 0;
+let currentGap = 0;
+let contactState = 'none';
+let currentIntensity = 0;
+let bounceCount = 0;
+let peakParticles = 0;
 
 const EXT_ACCEL = 700;
 const EXT_MAXSPEED = 420;
 const EXT_FRICTION = 0.88;
-const SPARK_ZONE = 46; // px зазора, в пределах которого идут искры
+const SPARK_ZONE = 46;
+const SETTLE_V = 6;
+const SETTLE_X = 0.6;
 
-// --- spring physics (mouse release) ---
-const SPRING_K   = 220;  // жёсткость пружины (тянет вверх к проводу)
-const SPRING_C   = 4.5;  // демпфирование (малое → упругий отскок)
-const BOUNCE     = 0.55; // коэффициент отскока от провода
-const SETTLE_V   = 6;    // порог скорости для остановки
-const SETTLE_X   = 0.6;  // порог расстояния для остановки
-
-// режимы управления: 'idle' (клавиатура), 'dragging' (мышь зажата), 'springing' (отпустили — пружинит)
-let controlMode = 'idle';
-let springTarget = 0;
-let flashAlpha = 0;     // белая вспышка при сильном отскоке
-let lastBounceV = 0;    // для расчёта силы искр при отскоке
-
-// стартуем в среднем положении
-extension = maxExtension()*0.45;
-
-// ---------------- input ----------------
+// ============================================================
+// Keyboard
+// ============================================================
+const keys = {};
 window.addEventListener('keydown', e=>{
   if(['ArrowUp','ArrowDown','KeyW','KeyS','Space'].includes(e.code)) e.preventDefault();
   keys[e.code] = true;
-  if(e.code === 'Space'){
+  if(e.code === 'Space' && controlMode !== 'dragging'){
     controlMode = 'idle';
     extension = maxExtension()*0.5;
     extVelocity = 0;
@@ -200,44 +428,46 @@ window.addEventListener('keydown', e=>{
 });
 window.addEventListener('keyup', e=>{ keys[e.code] = false; });
 
-// --- mouse / touch drag ---
-function pointerToExtension(clientY){
-  // Чем выше мышь — тем больше extension. Map: mouseY → extension.
-  const target = roofY() - clientY - stripOffset;
-  return Math.max(minExtension(), Math.min(maxExtension(), target));
-}
+// ============================================================
+// Mouse drag on head
+// ============================================================
+let mouseDragging = false;
 canvas.addEventListener('pointerdown', e=>{
-  controlMode = 'dragging';
-  extension = pointerToExtension(e.clientY);
-  extVelocity = 0;
-  canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+  const cx = W*0.5;
+  const headY = roofY() - extension;
+  const stripY = headY - stripOffset;
+  const dx = e.clientX - cx;
+  const dy = e.clientY - stripY;
+  // hitbox around the strip
+  if(Math.abs(dx) < 110 && Math.abs(dy) < 40){
+    mouseDragging = true;
+    controlMode = 'dragging';
+    e.preventDefault();
+  }
 });
 window.addEventListener('pointermove', e=>{
-  if(controlMode === 'dragging'){
-    extension = pointerToExtension(e.clientY);
-    extVelocity = 0;
-  }
+  if(!mouseDragging) return;
+  let ext = roofY() - e.clientY - stripOffset;
+  ext = Math.max(minExtension(), Math.min(maxExtension(), ext));
+  extension = ext;
 });
-window.addEventListener('pointerup', e=>{
-  if(controlMode === 'dragging'){
-    controlMode = 'springing';
-    springTarget = maxExtension(); // пружинит вверх к проводу
-  }
-});
-window.addEventListener('pointercancel', e=>{
-  if(controlMode === 'dragging'){
+window.addEventListener('pointerup', ()=>{
+  if(mouseDragging){
+    mouseDragging = false;
     controlMode = 'springing';
     springTarget = maxExtension();
   }
 });
 
-// ---------------- audio ----------------
+// ============================================================
+// Audio (procedural crackle)
+// ============================================================
 let audioCtx=null, noiseBuffer=null, lastSnd=0;
 function initAudio(){
   if(audioCtx) return;
   try{
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const bs = audioCtx.sampleRate*0.3;
+    const bs = audioCtx.sampleRate*0.5;
     noiseBuffer = audioCtx.createBuffer(1,bs,audioCtx.sampleRate);
     const d = noiseBuffer.getChannelData(0);
     for(let i=0;i<bs;i++) d[i]=Math.random()*2-1;
@@ -247,7 +477,7 @@ window.addEventListener('keydown', initAudio, {once:true});
 window.addEventListener('pointerdown', initAudio, {once:true});
 
 function playCrackle(vol){
-  if(!audioCtx) return;
+  if(!F.AUDIO_ON || !audioCtx) return;
   const now = performance.now();
   if(now-lastSnd<45) return;
   lastSnd = now;
@@ -255,7 +485,7 @@ function playCrackle(vol){
   src.buffer = noiseBuffer;
   src.playbackRate.value = 1.2+Math.random()*1.8;
   const gain = audioCtx.createGain();
-  const g = Math.min(0.55, vol*0.55);
+  const g = Math.min(0.55, vol*0.55*F.VOLUME);
   gain.gain.setValueAtTime(g, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.1+Math.random()*0.12);
   const filt = audioCtx.createBiquadFilter();
@@ -264,139 +494,334 @@ function playCrackle(vol){
   src.start(); src.stop(audioCtx.currentTime+0.25);
 }
 
-// ---------------- particles ----------------
+// ============================================================
+// Sparks — typed arrays for performance
+// ============================================================
+const HARD_CAP = 100000;
+const sparkX = new Float32Array(HARD_CAP);
+const sparkY = new Float32Array(HARD_CAP);
+const sparkVX = new Float32Array(HARD_CAP);
+const sparkVY = new Float32Array(HARD_CAP);
+const sparkLife = new Float32Array(HARD_CAP);
+const sparkMaxLife = new Float32Array(HARD_CAP);
+const sparkSize = new Float32Array(HARD_CAP);
+const sparkR = new Float32Array(HARD_CAP);
+const sparkG = new Float32Array(HARD_CAP);
+const sparkB = new Float32Array(HARD_CAP);
+const sparkActive = new Uint8Array(HARD_CAP);
+let nextSparkIdx = 0;
+let activeSparkCount = 0;
+
+for(let i=0;i<HARD_CAP;i++){ sparkY[i] = -1000; }
+
+const PALETTES = {
+  electric: (r) => {
+    if(r<0.55) return [255,255,255];
+    if(r<0.8) return [255,215,90];
+    return [140,210,255];
+  },
+  fire: (r) => {
+    if(r<0.33) return [255,230,50];
+    if(r<0.66) return [255,128,25];
+    return [230,40,10];
+  },
+  rainbow: (r) => {
+    const h = r, s = 1, l = 0.6;
+    const c = vToRGB(h,s,l);
+    return [c[0]*255, c[1]*255, c[2]*255];
+  },
+  plasma: (r) => {
+    if(r<0.5) return [180,55,255];
+    return [255,80,210];
+  },
+  toxic: (r) => {
+    if(r<0.5) return [80,255,100];
+    return [200,255,55];
+  },
+};
+function vToRGB(h,s,l){
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const hue2rgb = (p,q,t)=>{
+      if(t<0) t+=1; if(t>1) t-=1;
+      if(t<1/6) return p+(q-p)*6*t;
+      if(t<1/2) return q;
+      if(t<2/3) return p+(q-p)*(2/3-t)*6;
+      return p;
+    };
+    const q = l<0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    r = hue2rgb(p,q,h+1/3);
+    g = hue2rgb(p,q,h);
+    b = hue2rgb(p,q,h-1/3);
+  }
+  return [r,g,b];
+}
+
+function setSparkColor(idx, r){
+  const pal = PALETTES[F.PALETTE] || PALETTES.electric;
+  const [cr,cg,cb] = pal(r);
+  sparkR[idx] = cr; sparkG[idx] = cg; sparkB[idx] = cb;
+}
+
 function spawnSpark(x,y,power){
-  if(MAX_PARTICLES <= 0) return; // ліміт 0 → іскри вимкнено
-  let count = Math.ceil((5 + power*14*Math.random()) * SPARK_RATE_MUL);
-  const room = MAX_PARTICLES - particles.length;
-  if(room <= 0) return;
-  if(count > room) count = room;
+  if(F.MAX_PARTICLES <= 0) return;
+  const count = Math.ceil((5 + power*14*Math.random()) * F.SPARK_RATE_MUL);
   for(let i=0;i<count;i++){
+    const idx = nextSparkIdx;
+    nextSparkIdx = (nextSparkIdx + 1) % F.MAX_PARTICLES;
+    sparkActive[idx] = 1;
+    sparkLife[idx] = 0;
+    sparkMaxLife[idx] = (0.3 + Math.random()*0.5) * F.SPARK_LIFE_MUL;
     const ang = (Math.random()-0.5)*Math.PI*1.4 - Math.PI/2;
-    const spd = (180 + Math.random()*380) * power;
-    particles.push({
-      x:x+(Math.random()-0.5)*10, y:y+(Math.random()-0.5)*6,
-      vx:Math.cos(ang)*spd + (Math.random()-0.5)*120*power,
-      vy:Math.sin(ang)*spd - Math.random()*60*power,
-      life:0, maxLife:0.3+Math.random()*0.5,
-      size:(1.6+Math.random()*3.8)*SPARK_SIZE_MUL,
-      color: Math.random()<0.55?'255,255,255':(Math.random()<0.5?'255,215,90':'140,210,255')
-    });
+    const spd = (180 + Math.random()*380) * power * F.SPARK_SPEED_MUL;
+    sparkX[idx] = x + (Math.random()-0.5)*10;
+    sparkY[idx] = y + (Math.random()-0.5)*6;
+    sparkVX[idx] = Math.cos(ang)*spd + (Math.random()-0.5)*120*power;
+    if(F.WIND_ON) sparkVX[idx] += F.TRAIN_SPEED * 4; // wind from train motion
+    sparkVY[idx] = Math.sin(ang)*spd - Math.random()*60*power;
+    sparkSize[idx] = (1.6+Math.random()*3.8) * F.SPARK_SIZE_MUL;
+    setSparkColor(idx, Math.random());
   }
 }
+
 function spawnBounceBurst(x,y,power){
-  if(MAX_PARTICLES <= 0) return;
-  let count = Math.ceil((18 + power*30) * SPARK_RATE_MUL);
-  const room = MAX_PARTICLES - particles.length;
-  if(room <= 0) return;
-  if(count > room) count = room;
+  if(F.MAX_PARTICLES <= 0) return;
+  const count = Math.ceil((18 + power*30) * F.SPARK_RATE_MUL);
   for(let i=0;i<count;i++){
+    const idx = nextSparkIdx;
+    nextSparkIdx = (nextSparkIdx + 1) % F.MAX_PARTICLES;
+    sparkActive[idx] = 1;
+    sparkLife[idx] = 0;
+    sparkMaxLife[idx] = (0.4+Math.random()*0.6) * F.SPARK_LIFE_MUL;
     const ang = Math.random()*Math.PI*2;
-    const spd = (200 + Math.random()*520) * (0.6+power*0.6);
-    particles.push({
-      x:x+(Math.random()-0.5)*16, y:y+(Math.random()-0.5)*8,
-      vx:Math.cos(ang)*spd,
-      vy:Math.sin(ang)*spd - Math.random()*120,
-      life:0, maxLife:0.4+Math.random()*0.6,
-      size:(2+Math.random()*4.5)*SPARK_SIZE_MUL,
-      color: Math.random()<0.5?'255,255,255':(Math.random()<0.5?'255,200,70':'120,200,255')
-    });
+    const spd = (200 + Math.random()*520) * (0.6+power*0.6) * F.SPARK_SPEED_MUL;
+    sparkX[idx] = x + (Math.random()-0.5)*16;
+    sparkY[idx] = y + (Math.random()-0.5)*8;
+    sparkVX[idx] = Math.cos(ang)*spd;
+    sparkVY[idx] = Math.sin(ang)*spd - Math.random()*120;
+    sparkSize[idx] = (2+Math.random()*4.5) * F.SPARK_SIZE_MUL;
+    setSparkColor(idx, Math.random());
   }
   flashAlpha = Math.min(0.75, 0.25 + power*0.45);
+  bounceCount++;
 }
-function enforceCap(){
-  if(particles.length > MAX_PARTICLES){
-    particles.splice(0, particles.length - MAX_PARTICLES);
+
+// ============================================================
+// Performance / LOD state
+// ============================================================
+F.QUALITY = 'quality';        // 'auto' | 'quality' | 'balanced' | 'perf' | 'potato'
+F.FPS_TARGET = 60;
+F.THROTTLE = true;
+F.SQUARE = false;
+let autoCapMul = 1.0;          // dynamic multiplier applied by throttle
+let updateRateCounter = 0;      // for half-rate updates at huge counts
+const Q_PRESETS = {
+  quality:  { blur: 'full', square: false, halfRate: 0     },
+  balanced: { blur: 'low',  square: false, halfRate: 0     },
+  perf:     { blur: 'none', square: false, halfRate: 20000 },
+  potato:   { blur: 'none', square: true,  halfRate: 8000  }
+};
+function getEffectiveQuality(){
+  if(F.QUALITY !== 'auto') return Q_PRESETS[F.QUALITY];
+  // Auto: pick based on active particle count
+  if(activeSparkCount > 50000) return Q_PRESETS.potato;
+  if(activeSparkCount > 20000) return Q_PRESETS.perf;
+  if(activeSparkCount > 5000)  return Q_PRESETS.balanced;
+  return Q_PRESETS.quality;
+}
+
+function updateSparks(dt){
+  const g = F.GRAVITY;
+  const q = getEffectiveQuality();
+  // half-rate update: skip every other frame for huge counts
+  const skipUpdate = q.halfRate > 0 && activeSparkCount > q.halfRate && (updateRateCounter++ & 1);
+  if(skipUpdate){
+    // still advance life a tiny bit so they expire, but skip physics
+    let active = 0;
+    for(let i=0;i<F.MAX_PARTICLES;i++){
+      if(!sparkActive[i]) continue;
+      sparkLife[i] += dt;
+      if(sparkLife[i] >= sparkMaxLife[i]){ sparkActive[i]=0; sparkY[i]=-1000; }
+      else active++;
+    }
+    activeSparkCount = active;
+    if(active > peakParticles) peakParticles = active;
+    return;
   }
-}
-function updateParticles(dt){
-  for(let i=particles.length-1;i>=0;i--){
-    const p=particles[i];
-    p.vy += 650*dt;
-    p.x += p.vx*dt; p.y += p.vy*dt;
-    p.life += dt;
-    if(p.life>p.maxLife) particles.splice(i,1);
+  let active = 0;
+  const W_ = W, H_ = H;
+  for(let i=0;i<F.MAX_PARTICLES;i++){
+    if(!sparkActive[i]) continue;
+    sparkVY[i] += g * dt;
+    sparkVX[i] *= (1 - 0.6*dt);
+    sparkX[i] += sparkVX[i]*dt;
+    sparkY[i] += sparkVY[i]*dt;
+    sparkLife[i] += dt;
+    // cull particles that fell off screen — saves draw cost
+    if(sparkLife[i] >= sparkMaxLife[i] || sparkY[i] > H_+50 || sparkY[i] < -50 || sparkX[i] < -50 || sparkX[i] > W_+50){
+      sparkActive[i] = 0;
+      sparkY[i] = -1000;
+    } else active++;
   }
+  activeSparkCount = active;
+  if(active > peakParticles) peakParticles = active;
 }
-function drawParticles(){
-  const n = particles.length;
-  if(n === 0) return;
+
+function drawSparks(){
+  const n = F.MAX_PARTICLES;
+  if(n === 0 || activeSparkCount === 0) return;
+  const q = getEffectiveQuality();
+  // effective settings: square toggle overrides preset
+  const useSquare = F.SQUARE || q.square;
+  const blur = (q.blur === 'full') ? 14 : (q.blur === 'low' ? 6 : 0);
   ctx.save();
   ctx.globalCompositeOperation='lighter';
-  // оптимізація: при великій кількості частинок зменшуємо shadowBlur
-  const blur = n > 20000 ? 0 : (n > 5000 ? 6 : 14);
-  if(blur > 0){
+  ctx.shadowBlur = blur;
+  if(useSquare){
+    // FASTEST: fillRect (no arc, no beginPath, single fillRect call)
+    // group by quantized alpha to minimize fillStyle changes
+    const aBuckets = new Map();
     for(let i=0;i<n;i++){
-      const p = particles[i];
-      const a = 1-p.life/p.maxLife;
+      if(!sparkActive[i]) continue;
+      const a = 1 - sparkLife[i]/sparkMaxLife[i];
+      const ai = (a * 10) | 0;        // quantize to 10 alpha steps
+      const key = (sparkR[i]|0) + ((sparkG[i]|0)<<8) + ((sparkB[i]|0)<<16) + (ai<<24);
+      let arr = aBuckets.get(key);
+      if(!arr){ arr = []; aBuckets.set(key, arr); }
+      const sz = sparkSize[i]*a + 0.5;
+      arr.push(sparkX[i]-sz, sparkY[i]-sz, sz*2, sz*2);
+    }
+    for(const [key, arr] of aBuckets){
+      const r = key & 0xff, g = (key>>8) & 0xff, b = (key>>16) & 0xff, ai = key>>>24;
+      ctx.fillStyle = `rgba(${r},${g},${b},${ai/10})`;
+      for(let k=0;k<arr.length;k+=4){
+        ctx.fillRect(arr[k], arr[k+1], arr[k+2], arr[k+3]);
+      }
+    }
+  } else if(blur > 0){
+    // ARCS WITH GLOW — slowest, prettiest
+    for(let i=0;i<n;i++){
+      if(!sparkActive[i]) continue;
+      const a = 1 - sparkLife[i]/sparkMaxLife[i];
+      const sz = sparkSize[i]*a + 0.5;
+      const col = `rgba(${sparkR[i]|0},${sparkG[i]|0},${sparkB[i]|0},${a})`;
       ctx.beginPath();
-      ctx.fillStyle=`rgba(${p.color},${a})`;
-      ctx.shadowColor=`rgba(${p.color},${a})`;
-      ctx.shadowBlur=blur;
-      ctx.arc(p.x,p.y,p.size*a+0.5,0,Math.PI*2);
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
+      ctx.arc(sparkX[i], sparkY[i], sz, 0, Math.PI*2);
       ctx.fill();
     }
   } else {
-    ctx.shadowBlur=0;
+    // ARCS WITHOUT GLOW — middle ground
     for(let i=0;i<n;i++){
-      const p = particles[i];
-      const a = 1-p.life/p.maxLife;
+      if(!sparkActive[i]) continue;
+      const a = 1 - sparkLife[i]/sparkMaxLife[i];
+      const sz = sparkSize[i]*a + 0.5;
       ctx.beginPath();
-      ctx.fillStyle=`rgba(${p.color},${a})`;
-      ctx.arc(p.x,p.y,p.size*a+0.5,0,Math.PI*2);
+      ctx.fillStyle = `rgba(${sparkR[i]|0},${sparkG[i]|0},${sparkB[i]|0},${a})`;
+      ctx.arc(sparkX[i], sparkY[i], sz, 0, Math.PI*2);
       ctx.fill();
     }
   }
   ctx.restore();
 }
 
-function drawBolt(x1,y1,x2,y2,intensity){
-  // товстіша, більш «молнієподібна» дуга з гілками
-  const segs=8;
-  const pts=[{x:x1,y:y1}];
-  for(let i=1;i<segs;i++){
-    const t=i/segs;
-    pts.push({
-      x:x1+(x2-x1)*t+(Math.random()-0.5)*18*intensity,
-      y:y1+(y2-y1)*t+(Math.random()-0.5)*12*intensity
-    });
+// ============================================================
+// Lightning bolts (with branches)
+// ============================================================
+const MAX_BOLTS = 8;
+const bolts = [];
+for(let i=0;i<MAX_BOLTS;i++){
+  // start in "expired" state so drawBolts skips them — points array is empty until first spawn
+  bolts.push({ points: [], life: 1, maxLife: 1, intensity: 1, branches: [] });
+}
+
+function spawnBolt(x1,y1,x2,y2,intensity){
+  for(const b of bolts){
+    if(b.life >= b.maxLife){
+      b.life = 0;
+      b.maxLife = 0.05 + Math.random()*0.12;
+      b.intensity = intensity;
+      b.points.length = 0;
+      b.branches.length = 0;
+      const segs = 8;
+      b.points.push({x:x1, y:y1});
+      for(let i=1;i<segs;i++){
+        const t = i/segs;
+        b.points.push({
+          x: x1 + (x2-x1)*t + (Math.random()-0.5)*22*intensity,
+          y: y1 + (y2-y1)*t + (Math.random()-0.5)*14*intensity
+        });
+      }
+      b.points.push({x:x2, y:y2});
+      // branches
+      if(F.BRANCH){
+        for(let s=1;s<b.points.length-1;s++){
+          if(Math.random()<0.45){
+            const p = b.points[s];
+            const bx = p.x + (Math.random()-0.5)*70*intensity;
+            const by = p.y + (Math.random()-0.5)*50*intensity;
+            b.branches.push({x1:p.x, y1:p.y, x2:bx, y2:by});
+          }
+        }
+      }
+      return;
+    }
   }
-  pts.push({x:x2,y:y2});
+}
+
+function updateBolts(dt){
+  for(const b of bolts){
+    if(b.life < b.maxLife){
+      b.life += dt;
+    }
+  }
+}
+
+function drawBolts(){
   ctx.save();
   ctx.globalCompositeOperation='lighter';
-  // зовнішнє сяйво
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x,pts[0].y);
-  for(const p of pts.slice(1)) ctx.lineTo(p.x,p.y);
-  ctx.strokeStyle=`rgba(120,200,255,${0.5*intensity})`;
-  ctx.lineWidth=8*intensity; ctx.shadowColor='#6cf'; ctx.shadowBlur=24;
-  ctx.stroke();
-  // внутрішнє ядро
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x,pts[0].y);
-  for(const p of pts.slice(1)) ctx.lineTo(p.x,p.y);
-  ctx.strokeStyle=`rgba(255,255,255,${0.95*intensity})`;
-  ctx.lineWidth=2.2; ctx.shadowBlur=14;
-  ctx.stroke();
-  // гілки
-  if(intensity>0.5){
-    for(let b=1;b<pts.length-1;b+=2){
-      if(Math.random()<0.5){
-        const bx=pts[b].x+(Math.random()-0.5)*40*intensity;
-        const by=pts[b].y+(Math.random()-0.5)*30*intensity;
-        ctx.beginPath();
-        ctx.moveTo(pts[b].x,pts[b].y);
-        ctx.lineTo(bx,by);
-        ctx.strokeStyle=`rgba(180,220,255,${0.4*intensity})`;
-        ctx.lineWidth=2*intensity; ctx.shadowBlur=12;
-        ctx.stroke();
-      }
+  for(const b of bolts){
+    if(b.life >= b.maxLife) continue;
+    if(!b.points || b.points.length === 0) continue;   // skip empty bolts
+    const a = (1 - b.life/b.maxLife) * b.intensity;
+    if(a <= 0) continue;
+    // outer glow
+    ctx.beginPath();
+    ctx.moveTo(b.points[0].x, b.points[0].y);
+    for(let i=1;i<b.points.length;i++) ctx.lineTo(b.points[i].x, b.points[i].y);
+    ctx.strokeStyle = `rgba(120,200,255,${0.5*a})`;
+    ctx.lineWidth = 8*F.BOLT_THICK;
+    ctx.shadowColor = '#6cf';
+    ctx.shadowBlur = 24;
+    ctx.stroke();
+    // inner core
+    ctx.beginPath();
+    ctx.moveTo(b.points[0].x, b.points[0].y);
+    for(let i=1;i<b.points.length;i++) ctx.lineTo(b.points[i].x, b.points[i].y);
+    ctx.strokeStyle = `rgba(255,255,255,${0.95*a})`;
+    ctx.lineWidth = 2.2*F.BOLT_THICK;
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    // branches
+    for(const br of b.branches){
+      ctx.beginPath();
+      ctx.moveTo(br.x1, br.y1);
+      ctx.lineTo(br.x2, br.y2);
+      ctx.strokeStyle = `rgba(180,220,255,${0.4*a})`;
+      ctx.lineWidth = 2*F.BOLT_THICK;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
     }
   }
   ctx.restore();
 }
 
-// ---------------- kinematics helper ----------------
+// ============================================================
+// Kinematics helper (2D)
+// ============================================================
 function circleIntersect(b, a, rB, rA, side){
   const dx=a.x-b.x, dy=a.y-b.y;
   const d=Math.sqrt(dx*dx+dy*dy);
@@ -413,107 +838,145 @@ function circleIntersect(b, a, rB, rA, side){
   return p1.x<p2.x?p1:p2;
 }
 
-// ---------------- update ----------------
-let currentGap = 0;
-let contactState = 'none';
-let currentIntensity = 0;
+// ============================================================
+// Update
+// ============================================================
+let scrollX = 0;
 
 function update(dt){
   const maxE = maxExtension(), minE = minExtension();
 
   if(controlMode === 'dragging'){
-    // миша керує extension безпосередньо, швидкість = 0
     extVelocity = 0;
   } else if(controlMode === 'springing'){
-    // пружина тягне вгору до провода з невеликим демпфуванням → відскок
-    const force = -SPRING_K * (extension - springTarget);
+    const force = -F.SPRING_K * (extension - springTarget);
     extVelocity += force * dt;
-    extVelocity -= SPRING_C * extVelocity * dt;
+    extVelocity -= F.DAMPING * extVelocity * dt;
     extension += extVelocity * dt;
-
-    // жорсткий відскок від провода (не даємо пробити нагору)
     if(extension > maxE){
       extension = maxE;
       if(extVelocity > 30){
-        // великий спалах іскор при ударі
-        const impactPower = Math.min(1.4, extVelocity / 280);
-        spawnBounceBurst(W*0.5, wireY(), impactPower);
-        playCrackle(0.6 + impactPower*0.4);
-        lastBounceV = extVelocity;
+        const impact = Math.min(1.4, extVelocity/280);
+        spawnBounceBurst(W*0.5, wireY(), impact);
+        spawnBolt(W*0.5-30, wireY()+5, W*0.5-30, wireY()-5, 0.7*F.BOLT_THICK);
+        spawnBolt(W*0.5+30, wireY()+5, W*0.5+30, wireY()-5, 0.7*F.BOLT_THICK);
+        playCrackle(0.6 + impact*0.4);
       }
-      extVelocity = -extVelocity * BOUNCE; // пружний відскок
+      extVelocity = -extVelocity * F.BOUNCE;
     }
-
-    // зупинка коли коливання згасло
     if(Math.abs(extVelocity) < SETTLE_V && Math.abs(extension - springTarget) < SETTLE_X){
       extension = springTarget;
       extVelocity = 0;
       controlMode = 'idle';
     }
   } else {
-    // idle — керування клавіатурою (як раніше)
     if(keys['ArrowUp']||keys['KeyW']) extVelocity += EXT_ACCEL*dt;
     else if(keys['ArrowDown']||keys['KeyS']) extVelocity -= EXT_ACCEL*dt;
     else extVelocity *= EXT_FRICTION;
-
     extVelocity = Math.max(-EXT_MAXSPEED, Math.min(EXT_MAXSPEED, extVelocity));
     extension += extVelocity*dt;
-
     if(extension < minE){ extension = minE; extVelocity = 0; }
     if(extension > maxE){ extension = maxE; extVelocity = 0; }
   }
 
-  // загасання вспышки
-  if(flashAlpha > 0){ flashAlpha = Math.max(0, flashAlpha - dt*1.6); }
+  if(flashAlpha > 0) flashAlpha = Math.max(0, flashAlpha - dt*1.6);
 
-  scrollX += 40*dt;
+  scrollX += F.TRAIN_SPEED * 5 * dt;
 
   const cx = W*0.5;
   const headY = roofY() - extension;
   const stripY = headY - stripOffset;
   currentGap = Math.max(0, stripY - wireY());
 
-  if(currentGap <= 0.5){
+  const voltMul = F.VOLTAGE / 25;
+
+  // Spark cutoff: if extension reaches the cutoff height, sparking stops entirely.
+  // (0 = disabled; sparks behave normally)
+  const cutoffActive = F.SPARK_CUTOFF > 0 && extension >= F.SPARK_CUTOFF;
+
+  if(cutoffActive){
+    contactState = 'none';
+    currentIntensity = 0;
+  } else if(currentGap <= 0.5){
     contactState = 'contact';
-    currentIntensity = 0.55;
-    if(Math.random()<0.55) spawnSpark(cx, wireY(), 0.65);
-    if(Math.random()<0.35) spawnSpark(cx + (Math.random()-0.5)*60, wireY(), 0.5);
+    currentIntensity = 0.55 * voltMul;
+    if(Math.random()<0.55) spawnSpark(cx, wireY(), 0.65 * voltMul);
+    if(Math.random()<0.35) spawnSpark(cx + (Math.random()-0.5)*60, wireY(), 0.5 * voltMul);
+    if(Math.random()<0.3) spawnBolt(cx-30, stripY-3, cx-30, wireY(), 0.6*F.BOLT_THICK);
+    if(Math.random()<0.3) spawnBolt(cx+30, stripY-3, cx+30, wireY(), 0.6*F.BOLT_THICK);
     playCrackle(0.4);
   } else if(currentGap <= SPARK_ZONE){
     contactState = 'spark';
-    currentIntensity = 1 - currentGap/SPARK_ZONE;
-    if(Math.random() < 0.3+currentIntensity*0.7) spawnSpark(cx + (Math.random()-0.5)*40, (stripY+wireY())/2, 0.45+currentIntensity*0.8);
-    playCrackle(0.3+currentIntensity*0.6);
+    currentIntensity = (1 - currentGap/SPARK_ZONE) * voltMul;
+    if(Math.random() < 0.3+currentIntensity*0.7)
+      spawnSpark(cx + (Math.random()-0.5)*40, (stripY+wireY())/2, 0.45 + currentIntensity*0.8);
+    if(Math.random() < 0.18)
+      spawnBolt(cx, stripY-3, cx, wireY(), (0.4+currentIntensity)*F.BOLT_THICK);
+    playCrackle(0.3 + currentIntensity*0.6);
   } else {
     contactState = 'none';
     currentIntensity = 0;
   }
 
-  updateParticles(dt);
-  enforceCap();
+  updateBolts(dt);
+  updateSparks(dt);
 }
 
-// ---------------- drawing ----------------
+// ============================================================
+// Drawing
+// ============================================================
+const TOD_PRESETS = {
+  dawn:  { sky1:'#1a1030', sky2:'#ff9a6b', sky3:'#ffd6b3', wire:'#ffe0b0', roofEdge:'#5a2a18' },
+  day:   { sky1:'#0c1430', sky2:'#17244a', sky3:'#223659', wire:'#dcdcdc', roofEdge:'#0f5a48' },
+  dusk:  { sky1:'#1a0a30', sky2:'#3a2050', sky3:'#5a3060', wire:'#e8c8a0', roofEdge:'#2a1a40' },
+  night: { sky1:'#000308', sky2:'#020410', sky3:'#0a1028', wire:'#a8b0c8', roofEdge:'#0a1a30' }
+};
+
+let starsCache = null;
+function buildStars(){
+  starsCache = [];
+  for(let i=0;i<150;i++){
+    starsCache.push({ x: Math.random(), y: Math.random()*0.5, s: 0.5+Math.random()*1.5, t: Math.random()*Math.PI*2 });
+  }
+}
+buildStars();
+
 function drawBackground(){
+  const p = TOD_PRESETS[F.TOD];
+  // override with custom sky color as the deepest stop
   const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#0c1430');
-  g.addColorStop(0.55,'#17244a');
-  g.addColorStop(1,'#223659');
+  g.addColorStop(0, p.sky1);
+  g.addColorStop(0.55, p.sky2);
+  g.addColorStop(1, p.sky3);
   ctx.fillStyle=g;
   ctx.fillRect(0,0,W,H);
 
-  ctx.fillStyle='rgba(255,255,255,0.5)';
-  for(let i=0;i<50;i++){
-    const sx=(i*149+scrollX*0.1)%W;
-    const sy=(i*61)%(H*0.4);
-    ctx.globalAlpha=0.25+0.25*Math.sin(i+scrollX*0.001);
-    ctx.fillRect(sx,sy,1.4,1.4);
+  // stars
+  if(F.STARS_ON && (F.TOD === 'night' || F.TOD === 'dusk' || F.TOD === 'dawn')){
+    ctx.fillStyle='rgba(255,255,255,0.8)';
+    for(const s of starsCache){
+      const sx = (s.x*W + scrollX*0.05) % W;
+      const sy = s.y*H*0.6;
+      const a = 0.4 + 0.4*Math.sin(s.t + scrollX*0.002);
+      ctx.globalAlpha = a;
+      ctx.fillRect(sx, sy, s.s, s.s);
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha=1;
+
+  // fog overlay
+  if(F.FOG_ON){
+    const fg = ctx.createLinearGradient(0, H*0.4, 0, H);
+    fg.addColorStop(0, 'rgba(0,0,0,0)');
+    fg.addColorStop(1, 'rgba(0,0,0,0.4)');
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, H*0.4, W, H*0.6);
+  }
 }
 
 function drawWireAndPoles(){
   const wy = wireY();
+  const p = TOD_PRESETS[F.TOD];
   const poleSpacing = 300;
   const offset = scrollX % poleSpacing;
   ctx.strokeStyle='#4a4a4a';
@@ -529,7 +992,7 @@ function drawWireAndPoles(){
     ctx.lineTo(sx, wy);
     ctx.stroke();
   }
-  ctx.strokeStyle='#dcdcdc';
+  ctx.strokeStyle=p.wire;
   ctx.lineWidth=3;
   ctx.shadowColor='rgba(255,255,255,0.35)';
   ctx.shadowBlur=5;
@@ -539,7 +1002,7 @@ function drawWireAndPoles(){
   ctx.stroke();
   ctx.shadowBlur=0;
 
-  // лёгкая подпись
+  // label
   ctx.fillStyle='rgba(220,220,220,0.6)';
   ctx.font='12px monospace';
   ctx.fillText('контактный провод', 14, wy-10);
@@ -547,9 +1010,11 @@ function drawWireAndPoles(){
 
 function drawRoof(){
   const ry = roofY();
-  ctx.fillStyle='#1a7a63';
+  const p = TOD_PRESETS[F.TOD];
+  // apply custom roof color
+  ctx.fillStyle = F.ROOF_COLOR;
   ctx.fillRect(0, ry+8, W, H-(ry+8));
-  ctx.fillStyle='#0f5a48';
+  ctx.fillStyle = p.roofEdge;
   ctx.fillRect(0, ry+8, W, 6);
 }
 
@@ -576,7 +1041,7 @@ function drawPantograph(){
   const kneeRight = circleIntersect(baseRight, apex, La, Lu, +1);
   const kneeLeft  = circleIntersect(baseLeft,  apex, La, Lu, -1);
 
-  // --- изоляторы на крыше ---
+  // insulators
   ctx.fillStyle = '#d9d9d9';
   [baseLeft, baseRight].forEach(b=>{
     roundRect(b.x-8, b.y, 16, 22, 4);
@@ -587,11 +1052,10 @@ function drawPantograph(){
     ctx.fillStyle = '#d9d9d9';
   });
 
-  const metal = '#8a3326';
   const metalDark = '#5e2015';
 
   function rod(p1,p2,w){
-    ctx.strokeStyle = metal;
+    ctx.strokeStyle = F.ARM_COLOR;
     ctx.lineWidth = w;
     ctx.lineCap='round';
     ctx.beginPath();
@@ -606,20 +1070,18 @@ function drawPantograph(){
     ctx.stroke();
   }
 
-  // диагональные скрещенные тяги (как на фото)
   ctx.save();
   ctx.globalAlpha = 0.9;
   rod(baseLeft,  kneeRight, 3.2);
   rod(baseRight, kneeLeft,  3.2);
   ctx.restore();
 
-  // основные плечи ромба
   rod(baseLeft,  kneeLeft,  7);
   rod(baseRight, kneeRight, 7);
   rod(kneeLeft,  apex,      6);
   rod(kneeRight, apex,      6);
 
-  // пружинный блок у основания
+  // spring
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -634,7 +1096,7 @@ function drawPantograph(){
   }
   ctx.stroke();
 
-  // шарниры (чёрные точки)
+  // joints
   [baseLeft, baseRight, kneeLeft, kneeRight, apex].forEach(p=>{
     ctx.beginPath();
     ctx.fillStyle = metalDark;
@@ -642,7 +1104,7 @@ function drawPantograph(){
     ctx.fill();
   });
 
-  // --- головной узел (шкивы) ---
+  // pulleys
   ctx.fillStyle = '#444';
   ctx.beginPath(); ctx.arc(apex.x-10, apex.y-6, 7, 0, Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(apex.x+10, apex.y-6, 7, 0, Math.PI*2); ctx.fill();
@@ -650,7 +1112,6 @@ function drawPantograph(){
   ctx.beginPath(); ctx.arc(apex.x-10, apex.y-6, 7, 0, Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.arc(apex.x+10, apex.y-6, 7, 0, Math.PI*2); ctx.stroke();
 
-  // стойки, держащие полоз над узлом
   const headHalf = 95;
   const headLeft  = {x: apex.x-headHalf, y: stripY};
   const headRight = {x: apex.x+headHalf, y: stripY};
@@ -658,7 +1119,7 @@ function drawPantograph(){
   rod({x:apex.x+10, y:apex.y-10}, headRight, 4);
   rod({x:apex.x, y:apex.y-14}, {x:apex.x, y:stripY}, 3);
 
-  // полоз (пан-head)
+  // pan-head
   ctx.strokeStyle = '#555';
   ctx.lineWidth = 8;
   ctx.lineCap='round';
@@ -667,9 +1128,9 @@ function drawPantograph(){
   ctx.lineTo(headRight.x, headRight.y);
   ctx.stroke();
 
-  // контактная угольная/медная полоса
+  // contact strip
   const glow = contactState !== 'none' ? (0.5+currentIntensity*0.5) : 0;
-  ctx.strokeStyle = `rgba(230,195,90,1)`;
+  ctx.strokeStyle = F.STRIP_COLOR;
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(headLeft.x, headLeft.y-3);
@@ -693,33 +1154,21 @@ function drawPantograph(){
   return { stripY, cx };
 }
 
-function drawSparksAt(cx, stripY){
-  const wy = wireY();
-  if(contactState === 'contact'){
-    // несколько дуг одновременно для большей искры
-    drawBolt(cx-30, stripY-3, cx-30, wy, 0.7);
-    drawBolt(cx+30, stripY-3, cx+30, wy, 0.7);
-    if(Math.random()<0.5) drawBolt(cx, stripY-3, cx+(Math.random()-0.5)*20, wy, 0.5);
-  } else if(contactState === 'spark'){
-    drawBolt(cx, stripY-3, cx, wy, 0.45+currentIntensity*1.1);
-    if(currentIntensity>0.6 && Math.random()<0.4){
-      drawBolt(cx-20, stripY-3, cx-20+(Math.random()-0.5)*15, wy, 0.4+currentIntensity*0.7);
-    }
-  }
-}
-
-function updateHUD(){
+function drawHUD(){
   const maxE = maxExtension();
   extValEl.textContent = Math.round(extension);
   extBarEl.style.width = Math.min(100, (extension/maxE)*100) + '%';
   gapValEl.textContent = Math.round(currentGap);
+  velValEl.textContent = Math.round(extVelocity);
 
-  let msg='', color='#fff';
-  if(controlMode==='dragging'){ msg='🖱️ ТЯНИ МЫШЬ — утримуй пантограф'; color='#9cf'; }
+  let msg='', color='#9cf';
+  const cutoffActive = F.SPARK_CUTOFF > 0 && extension >= F.SPARK_CUTOFF;
+  if(cutoffActive && controlMode !== 'dragging'){ msg='🚫 CUTOFF — sparking stopped at '+Math.round(extension)+'px'; color='#f86'; }
+  else if(controlMode==='dragging'){ msg='🖱️ ТЯНИ МЫШЬ — утримуй пантограф'; color='#9cf'; }
   else if(controlMode==='springing'){ msg='🌀 ПРУЖИНИТЬ — відскок від провода…'; color='#fc6'; }
-  else if(contactState==='contact'){ msg='✅ УСТОЙЧИВЫЙ КОНТАКТ (предел достигнут — выше нельзя)'; color='#6f6'; }
+  else if(contactState==='contact'){ msg='✅ УСТОЙЧИВЫЙ КОНТАКТ'; color='#6f6'; }
   else if(contactState==='spark'){ msg='⚡ ИСКРЕНИЕ'; color='#ffd84d'; }
-  else { msg='❌ НЕТ КОНТАКТА — опущено слишком низко'; color='#888'; }
+  else { msg='❌ НЕТ КОНТАКТА'; color='#888'; }
   stateTextEl.textContent = msg;
   stateTextEl.style.color = color;
 }
@@ -728,110 +1177,400 @@ function draw(){
   drawBackground();
   drawWireAndPoles();
   drawRoof();
+  drawBolts();
   const {stripY, cx} = drawPantograph();
-  drawSparksAt(cx, stripY);
-  drawParticles();
-  // вспышка при мощном отскоке
+  drawSparks();
   if(flashAlpha > 0){
     ctx.save();
     ctx.globalCompositeOperation='lighter';
-    ctx.fillStyle=`rgba(255,250,220,${flashAlpha})`;
+    ctx.fillStyle = `rgba(255,250,220,${flashAlpha})`;
     ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
-  updateHUD();
+  drawHUD();
 }
 
+// ============================================================
+// UI wiring
+// ============================================================
+const $ = (id) => document.getElementById(id);
+
+function bindSlider(sliderId, valId, key, fmt){
+  const sl = $(sliderId), v = $(valId);
+  sl.addEventListener('input', e=>{
+    F[key] = parseFloat(e.target.value);
+    v.textContent = fmt(F[key]);
+  });
+}
+function bindToggle(toggleId, key){
+  const t = $(toggleId);
+  t.addEventListener('click', ()=>{
+    F[key] = !F[key];
+    t.classList.toggle('on', F[key]);
+  });
+}
+
+bindSlider('capSlider','capVal','MAX_PARTICLES', v => v===0?'OFF':Math.round(v).toLocaleString());
+bindSlider('szSlider','szVal','SPARK_SIZE_MUL', v => v.toFixed(1)+'×');
+bindSlider('rateSlider','rateVal','SPARK_RATE_MUL', v => v.toFixed(1)+'×');
+bindSlider('lifeSlider','lifeVal','SPARK_LIFE_MUL', v => v.toFixed(1)+'×');
+bindSlider('spdSlider','spdVal','SPARK_SPEED_MUL', v => v.toFixed(1)+'×');
+$('paletteSel').addEventListener('change', e=>{ F.PALETTE = e.target.value; });
+bindToggle('branchToggle','BRANCH');
+
+// Performance / Quality
+const Q_HINTS = {
+  auto:     '🤖 Auto: switches preset based on particle count',
+  quality:  '✨ Quality: arcs + glow. Best visuals.',
+  balanced: '⚖️ Balanced: arcs, low glow.',
+  perf:     '⚡ Perf: arcs no glow, half-rate at >20K.',
+  potato:   '🥔 Potato: square fillRect, half-rate at >8K. Fastest.'
+};
+document.querySelectorAll('[data-q]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-q]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    F.QUALITY = btn.dataset.q;
+    $('qHint').textContent = Q_HINTS[F.QUALITY];
+  });
+});
+bindSlider('fpsTargetSlider','fpsTargetVal','FPS_TARGET', v => Math.round(v));
+bindToggle('throttleToggle','THROTTLE');
+bindToggle('squareToggle','SQUARE');
+
+// Preset cap buttons
+document.querySelectorAll('[data-pcap]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const v = parseInt(btn.dataset.pcap, 10);
+    F.MAX_PARTICLES = v;
+    $('capSlider').value = v;
+    $('capVal').textContent = v === 0 ? 'OFF' : v.toLocaleString();
+    sparkGeo_setDrawRange();
+  });
+});
+function sparkGeo_setDrawRange(){ /* no-op for 2D; kept for compat */ }
+
+bindSlider('springSlider','springVal','SPRING_K', v => v.toFixed(0));
+bindSlider('bounceSlider','bounceVal','BOUNCE', v => v.toFixed(2));
+bindSlider('dampSlider','dampVal','DAMPING', v => v.toFixed(1));
+bindSlider('gravSlider','gravVal','GRAVITY', v => v.toFixed(0));
+bindSlider('cutoffSlider','cutoffVal','SPARK_CUTOFF', v => v===0 ? 'OFF' : Math.round(v)+' px');
+
+// (Preset system handlers are defined further down.)
+
+// ===== Preset system: serialize / deserialize / share =====
+const PRESET_KEYS = [
+  'MAX_PARTICLES','SPARK_SIZE_MUL','SPARK_RATE_MUL','SPARK_LIFE_MUL','SPARK_SPEED_MUL',
+  'PALETTE','BRANCH',
+  'QUALITY','FPS_TARGET','THROTTLE','SQUARE',
+  'SPRING_K','BOUNCE','DAMPING','GRAVITY','SPARK_CUTOFF',
+  'TOD','TRAIN_SPEED','VOLTAGE','STARS_ON','FOG_ON','WIND_ON',
+  'ARM_COLOR','STRIP_COLOR','ROOF_COLOR','SKY_COLOR','BOLT_THICK',
+  'AUDIO_ON','VOLUME','TIME_SCALE'
+];
+const PRESET_MAGIC = 'P2DP';
+
+function serializePreset(){
+  const obj = { m: PRESET_MAGIC, v: 1 };
+  for(const k of PRESET_KEYS) obj[k] = F[k];
+  const json = JSON.stringify(obj);
+  let b64;
+  try { b64 = btoa(unescape(encodeURIComponent(json))); }
+  catch(e){ b64 = btoa(json); }
+  return PRESET_MAGIC + ':' + b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+function deserializePreset(code){
+  if(!code || typeof code !== 'string') return false;
+  let s = code.trim();
+  if(s.startsWith(PRESET_MAGIC + ':')) s = s.slice(PRESET_MAGIC.length + 1);
+  s = s.replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length % 4) s += '=';
+  let json;
+  try { json = decodeURIComponent(escape(atob(s))); }
+  catch(e){
+    try { json = atob(s); } catch(e2){ return false; }
+  }
+  let obj;
+  try { obj = JSON.parse(json); } catch(e){ return false; }
+  if(!obj || obj.m !== PRESET_MAGIC) return false;
+  for(const k of PRESET_KEYS){
+    if(k in obj && obj[k] !== undefined && obj[k] !== null) F[k] = obj[k];
+  }
+  applyAllUIFromState();
+  return true;
+}
+
+function applyAllUIFromState(){
+  const sliderMap = {
+    capSlider: ['MAX_PARTICLES', v => v===0?'OFF':Math.round(v).toLocaleString()],
+    szSlider: ['SPARK_SIZE_MUL', v => v.toFixed(1)+'×'],
+    rateSlider: ['SPARK_RATE_MUL', v => v.toFixed(1)+'×'],
+    lifeSlider: ['SPARK_LIFE_MUL', v => v.toFixed(1)+'×'],
+    spdSlider: ['SPARK_SPEED_MUL', v => v.toFixed(1)+'×'],
+    fpsTargetSlider: ['FPS_TARGET', v => Math.round(v)],
+    springSlider: ['SPRING_K', v => v.toFixed(0)],
+    bounceSlider: ['BOUNCE', v => v.toFixed(2)],
+    dampSlider: ['DAMPING', v => v.toFixed(1)],
+    gravSlider: ['GRAVITY', v => v.toFixed(0)],
+    cutoffSlider: ['SPARK_CUTOFF', v => v===0?'OFF':Math.round(v)+' px'],
+    speedSlider: ['TRAIN_SPEED', v => Math.round(v)+' m/s'],
+    voltSlider: ['VOLTAGE', v => Math.round(v)+' kV'],
+    boltSlider: ['BOLT_THICK', v => v.toFixed(1)+'×'],
+    volSlider: ['VOLUME', v => Math.round(v*100)+'%'],
+    tsSlider: ['TIME_SCALE', v => v.toFixed(1)+'×']
+  };
+  for(const id in sliderMap){
+    const el = document.getElementById(id);
+    const [key, fmt] = sliderMap[id];
+    if(el) el.value = F[key];
+    const valEl = document.getElementById(id.replace('Slider','Val'));
+    if(valEl) valEl.textContent = fmt(F[key]);
+  }
+  const toggleMap = {
+    branchToggle:'BRANCH', throttleToggle:'THROTTLE', squareToggle:'SQUARE',
+    starsToggle:'STARS_ON', fogToggle:'FOG_ON', windToggle:'WIND_ON', audioToggle:'AUDIO_ON'
+  };
+  for(const id in toggleMap){
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('on', !!F[toggleMap[id]]);
+  }
+  const pal = document.getElementById('paletteSel');
+  if(pal) pal.value = F.PALETTE;
+  const colorMap = { armColor:'ARM_COLOR', stripColor:'STRIP_COLOR', roofColor:'ROOF_COLOR', skyColor:'SKY_COLOR' };
+  for(const id in colorMap){
+    const el = document.getElementById(id);
+    if(el) el.value = F[colorMap[id]];
+  }
+  document.querySelectorAll('[data-tod]').forEach(b=>b.classList.toggle('active', b.dataset.tod === F.TOD));
+  document.querySelectorAll('[data-q]').forEach(b=>b.classList.toggle('active', b.dataset.q === F.QUALITY));
+  // side effects
+  if(F.MAX_PARTICLES >= 0){
+    for(let i = F.MAX_PARTICLES; i < HARD_CAP; i++){ sparkActive[i] = 0; sparkY[i] = -1000; }
+  }
+  // 2D version has no sparkMat (uses ctx directly) — size is applied per-particle in drawSparks.
+  // Audio volume is applied at playCrackle time via F.VOLUME, no gainNode to sync.
+}
+
+function showPresetMsg(text, ok){
+  const el = document.getElementById('presetMsg');
+  el.textContent = text;
+  el.style.color = ok ? '#6f6' : '#f86';
+}
+
+// UI handlers
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const code = serializePreset();
+  document.getElementById('presetText').value = code;
+  try {
+    await navigator.clipboard.writeText(code);
+    showPresetMsg('✅ Preset copied to clipboard!', true);
+  } catch(e){
+    showPresetMsg('✅ Preset generated (clipboard blocked — copy manually).', true);
+  }
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  const code = document.getElementById('presetText').value.trim();
+  if(!code){ showPresetMsg('❌ Paste a preset code first.', false); return; }
+  const ok = deserializePreset(code);
+  if(ok) showPresetMsg('✅ Preset applied successfully!', true);
+  else showPresetMsg('❌ Invalid preset code.', false);
+});
+
+document.getElementById('uploadBtn').addEventListener('click', ()=>{
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const code = String(ev.target.result).trim();
+    const ok = deserializePreset(code);
+    if(ok){
+      document.getElementById('presetText').value = code;
+      showPresetMsg('✅ Loaded preset from ' + file.name, true);
+    } else {
+      showPresetMsg('❌ File does not contain a valid preset.', false);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const code = serializePreset();
+  const blob = new Blob([code], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.download = 'pantograph-preset-' + ts + '.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showPresetMsg('✅ Saved preset file.', true);
+});
+
+// Quick curated presets
+const QUICK_PRESETS = {
+  storm: {
+    MAX_PARTICLES: 20000, SPARK_SIZE_MUL: 1.5, SPARK_RATE_MUL: 2.5, SPARK_LIFE_MUL: 1.5,
+    SPARK_SPEED_MUL: 1.5, PALETTE: 'electric', BRANCH: true,
+    QUALITY: 'balanced', SPRING_K: 350, BOUNCE: 0.7, DAMPING: 3, GRAVITY: 400,
+    SPARK_CUTOFF: 0, VOLTAGE: 50, BOLT_THICK: 1.5
+  },
+  subtle: {
+    MAX_PARTICLES: 1000, SPARK_SIZE_MUL: 0.7, SPARK_RATE_MUL: 0.5, SPARK_LIFE_MUL: 0.6,
+    SPARK_SPEED_MUL: 0.6, PALETTE: 'plasma', BRANCH: false,
+    QUALITY: 'quality', SPRING_K: 150, BOUNCE: 0.4, DAMPING: 6, GRAVITY: 800,
+    SPARK_CUTOFF: 0, VOLTAGE: 15, BOLT_THICK: 0.7
+  },
+  firework: {
+    MAX_PARTICLES: 15000, SPARK_SIZE_MUL: 2.0, SPARK_RATE_MUL: 3.0, SPARK_LIFE_MUL: 2.5,
+    SPARK_SPEED_MUL: 2.5, PALETTE: 'rainbow', BRANCH: true,
+    QUALITY: 'perf', SPRING_K: 280, BOUNCE: 0.85, DAMPING: 2, GRAVITY: 500,
+    SPARK_CUTOFF: 0, VOLTAGE: 40, BOLT_THICK: 1.2
+  },
+  lowend: {
+    MAX_PARTICLES: 3000, SPARK_SIZE_MUL: 1.0, SPARK_RATE_MUL: 0.8, SPARK_LIFE_MUL: 0.7,
+    SPARK_SPEED_MUL: 0.8, PALETTE: 'electric', BRANCH: false,
+    QUALITY: 'potato', SQUARE: true, THROTTLE: true, FPS_TARGET: 30,
+    SPRING_K: 200, BOUNCE: 0.5, DAMPING: 5, GRAVITY: 700,
+    SPARK_CUTOFF: 0, VOLTAGE: 25, BOLT_THICK: 0.8, STARS_ON: false, FOG_ON: false
+  }
+};
+const DEFAULT_STATE = Object.freeze({
+  MAX_PARTICLES: 5000, SPARK_SIZE_MUL: 1.0, SPARK_RATE_MUL: 1.0, SPARK_LIFE_MUL: 1.0,
+  SPARK_SPEED_MUL: 1.0, PALETTE: 'electric', BRANCH: true,
+  QUALITY: 'quality', FPS_TARGET: 60, THROTTLE: true, SQUARE: false,
+  SPRING_K: 220, BOUNCE: 0.55, DAMPING: 4.5, GRAVITY: 650, SPARK_CUTOFF: 404,
+  TOD: 'day', TRAIN_SPEED: 0, VOLTAGE: 25, STARS_ON: true, FOG_ON: true, WIND_ON: true,
+  ARM_COLOR: '#8a3326', STRIP_COLOR: '#e6c35a', ROOF_COLOR: '#1a7a63', SKY_COLOR: '#0a1028',
+  BOLT_THICK: 1.0, AUDIO_ON: true, VOLUME: 0.5, TIME_SCALE: 1.0
+});
+document.querySelectorAll('[data-qp]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const name = btn.dataset.qp;
+    const preset = name === 'default' ? DEFAULT_STATE : QUICK_PRESETS[name];
+    if(!preset) return;
+    for(const k in preset) F[k] = preset[k];
+    applyAllUIFromState();
+    showPresetMsg('✅ Quick preset: ' + name, true);
+  });
+});
+
+document.querySelectorAll('[data-tod]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-tod]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    F.TOD = btn.dataset.tod;
+  });
+});
+bindSlider('speedSlider','speedVal','TRAIN_SPEED', v => Math.round(v)+' m/s');
+bindSlider('voltSlider','voltVal','VOLTAGE', v => Math.round(v)+' kV');
+bindToggle('starsToggle','STARS_ON');
+bindToggle('fogToggle','FOG_ON');
+bindToggle('windToggle','WIND_ON');
+
+$('armColor').addEventListener('input', e=>{ F.ARM_COLOR = e.target.value; });
+$('stripColor').addEventListener('input', e=>{ F.STRIP_COLOR = e.target.value; });
+$('roofColor').addEventListener('input', e=>{ F.ROOF_COLOR = e.target.value; });
+$('skyColor').addEventListener('input', e=>{ F.SKY_COLOR = e.target.value; });
+bindSlider('boltSlider','boltVal','BOLT_THICK', v => v.toFixed(1)+'×');
+
+bindToggle('audioToggle','AUDIO_ON');
+bindSlider('volSlider','volVal','VOLUME', v => Math.round(v*100)+'%');
+
+bindSlider('tsSlider','tsVal','TIME_SCALE', v => v.toFixed(1)+'×');
+$('resetBtn').addEventListener('click', ()=>{
+  extension = maxExtension()*0.5;
+  extVelocity = 0;
+  controlMode = 'idle';
+  bounceCount = 0;
+  peakParticles = 0;
+  for(let i=0;i<HARD_CAP;i++){ sparkActive[i]=0; sparkY[i]=-1000; }
+});
+$('slomoBtn').addEventListener('click', ()=>{
+  F.TIME_SCALE = F.TIME_SCALE > 0.5 ? 0.3 : 1.0;
+  $('tsSlider').value = F.TIME_SCALE;
+  $('tsVal').textContent = F.TIME_SCALE.toFixed(1)+'×';
+  $('slomoBtn').classList.toggle('active', F.TIME_SCALE < 0.5);
+});
+$('shootUpBtn').addEventListener('click', ()=>{
+  if(controlMode !== 'dragging'){
+    controlMode = 'springing';
+    springTarget = maxExtension();
+    extension = minExtension();
+    extVelocity = 0;
+  }
+});
+$('dropDownBtn').addEventListener('click', ()=>{
+  if(controlMode !== 'dragging'){
+    extension = minExtension();
+    extVelocity = 0;
+    controlMode = 'idle';
+  }
+});
+
+// collapsible sections
+document.querySelectorAll('#menu h3').forEach(h=>{
+  h.addEventListener('click', ()=>{
+    const sec = h.parentElement;
+    sec.classList.toggle('collapsed');
+    h.classList.toggle('collapsed');
+  });
+});
+
+// ============================================================
+// FPS counter + render loop
+// ============================================================
+let lastTime = performance.now();
+let frameCount = 0, fpsAccum = 0;
 function loop(now){
-  const dt = Math.min(0.05,(now-lastTime)/1000);
+  let dt = Math.min(0.05, (now-lastTime)/1000);
   lastTime = now;
+  dt = dt * F.TIME_SCALE;
   update(dt);
   draw();
-  // --- FPS / live count ---
+
   frameCount++;
-  fpsAccum += dt;
+  fpsAccum += dt / F.TIME_SCALE;  // use real dt for FPS
   if(fpsAccum >= 0.5){
     const fps = Math.round(frameCount / fpsAccum);
-    fpsValEl.textContent = fps;
-    liveCountEl.textContent = particles.length.toLocaleString('ru-RU');
-    // показуємо попередження про високе навантаження при <40 FPS або >50K частинок
-    perfRowEl.style.display = (fps < 40 || particles.length > 50000) ? 'flex' : 'none';
+    $('fpsVal').textContent = fps;
+    $('liveCount').textContent = activeSparkCount.toLocaleString();
+    $('peakCount').textContent = peakParticles.toLocaleString();
+    $('bounceCount').textContent = bounceCount.toLocaleString();
+    $('perfRow').style.display = (fps < F.FPS_TARGET - 10 || activeSparkCount > 30000) ? 'flex' : 'none';
+
+    // ===== Adaptive throttle: if FPS < target by 30%, shrink autoCapMul =====
+    if(F.THROTTLE){
+      if(fps < F.FPS_TARGET * 0.7){
+        // lagging — reduce cap to 80% of current
+        autoCapMul = Math.max(0.05, autoCapMul * 0.8);
+      } else if(fps >= F.FPS_TARGET){
+        // healthy — slowly grow back toward 1.0
+        autoCapMul = Math.min(1.0, autoCapMul * 1.05);
+      }
+    } else {
+      autoCapMul = 1.0;
+    }
+    // apply: effective cap = MAX_PARTICLES * autoCapMul
+    const effCap = Math.floor(F.MAX_PARTICLES * autoCapMul);
+    // deactivate particles above the effective cap
+    if(effCap < F.MAX_PARTICLES){
+      let toKill = F.MAX_PARTICLES - effCap;
+      for(let i=F.MAX_PARTICLES-1; i>=0 && toKill>0; i--){
+        if(sparkActive[i]){ sparkActive[i]=0; sparkY[i]=-1000; toKill--; }
+      }
+    }
+
     frameCount = 0; fpsAccum = 0;
   }
   requestAnimationFrame(loop);
 }
-
-// ---------------- menu UI ----------------
-const capSlider  = document.getElementById('capSlider');
-const capValEl   = document.getElementById('capVal');
-const szSlider   = document.getElementById('szSlider');
-const szValEl    = document.getElementById('szVal');
-const rateSlider = document.getElementById('rateSlider');
-const rateValEl  = document.getElementById('rateVal');
-const liveCountEl= document.getElementById('liveCount');
-const fpsValEl   = document.getElementById('fpsVal');
-const perfRowEl  = document.getElementById('perfRow');
-const menuEl     = document.getElementById('menu');
-const menuToggle = document.getElementById('menuToggle');
-
-let frameCount = 0, fpsAccum = 0;
-
-function formatCount(v){
-  if(v >= 1000000) return (v/1000000).toFixed(1)+'M';
-  if(v >= 1000) return (v/1000).toFixed(v>=10000?0:1)+'K';
-  return String(v);
-}
-function setActivePreset(v){
-  document.querySelectorAll('#menu .preset button').forEach(b=>{
-    b.classList.toggle('active', +b.dataset.v === v);
-  });
-}
-capSlider.addEventListener('input', e=>{
-  MAX_PARTICLES = parseInt(e.target.value, 10);
-  capValEl.textContent = MAX_PARTICLES === 0 ? 'ВИМК' : MAX_PARTICLES.toLocaleString('ru-RU');
-  enforceCap();
-  setActivePreset(MAX_PARTICLES);
-});
-szSlider.addEventListener('input', e=>{
-  SPARK_SIZE_MUL = parseFloat(e.target.value);
-  szValEl.textContent = SPARK_SIZE_MUL.toFixed(1)+'×';
-});
-rateSlider.addEventListener('input', e=>{
-  SPARK_RATE_MUL = parseFloat(e.target.value);
-  rateValEl.textContent = SPARK_RATE_MUL.toFixed(1)+'×';
-});
-document.querySelectorAll('#menu .preset button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const v = parseInt(btn.dataset.v, 10);
-    MAX_PARTICLES = v;
-    capSlider.value = v;
-    capValEl.textContent = v.toLocaleString('ru-RU');
-    enforceCap();
-    setActivePreset(v);
-  });
-});
-// згортання меню на мобільних
-menuToggle.addEventListener('click', ()=>{
-  menuEl.style.display = 'block';
-  menuToggle.style.display = 'none';
-});
-function checkMenuToggle(){
-  if(window.innerWidth < 480){
-    menuEl.style.display = 'none';
-    menuToggle.style.display = 'block';
-  } else {
-    menuEl.style.display = 'block';
-    menuToggle.style.display = 'none';
-  }
-}
-window.addEventListener('resize', checkMenuToggle);
-checkMenuToggle();
-
-// ініціалізація значень
-capValEl.textContent = MAX_PARTICLES.toLocaleString('ru-RU');
-szValEl.textContent = SPARK_SIZE_MUL.toFixed(1)+'×';
-rateValEl.textContent = SPARK_RATE_MUL.toFixed(1)+'×';
-
 requestAnimationFrame(loop);
 </script>
 </body>
